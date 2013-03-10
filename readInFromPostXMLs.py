@@ -10,14 +10,11 @@ XMLpath = "./miniposts.xml"
 XMLdoc = minidom.parse(XMLpath)
 rowlist = XMLdoc.getElementsByTagName('row')
 print len(rowlist), "xml rows in memory"
-
-
-
 for row in rowlist:
     tags = row.getAttribute("Tags")
     #asdf
     taglist = tags.strip("><").split("><")
-    for i,source in enumerate(taglist):
+    for i, source in enumerate(taglist):
         for dest in taglist[i+1:]:
-            print source,dest
+            print source, dest
     print
