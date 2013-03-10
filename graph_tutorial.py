@@ -6,6 +6,7 @@ from igraph import Graph
 #GenerateRandomGraph:
 g = Graph.GRG(50,.3)
 
+
 #writes a svg file:
 <<<<<<< HEAD
 g.write_svg("helloGraph.svg", "auto", 500, 500)
