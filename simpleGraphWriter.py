@@ -28,27 +28,50 @@ g = Graph()
 ar = []
 
 
-XMLpath = "./miniposts.xml"
+# XMLpath = "./miniposts.xml"
+XMLpath = "/Users/bryanmaass/Dropbox/!Winter13/163/final/so-export-2009-08/100posts.xml"
 XMLdoc = minidom.parse(XMLpath)
 rowlist = XMLdoc.getElementsByTagName('row')
 print len(rowlist), "rows parsed"
+
+gen = UniqueIdGenerator()
+def smart_add_edge(sourceName,targetName):
+	if sourceName not in gen:
+		sourceVertex = {}
+		sourceVertex["uid"] = gen[sourceName]
+		sourceVertex["name"] = sourceName
+		g.add_vertex(sourceVertex)
+	if targetName not in gen:
+		targetVertex = {}
+		targetVertex["uid"] = gen[targetName]
+		targetVertex["name"] = targetName
+		g.add_vertex(targetVertex)
+	g.add_edge(gen[sourceName],gen[targetName])
+
 for row in rowlist:
 	tags = row.getAttribute("Tags")
-	taglist = tags.strip("><").split("><")
+	taglist = tags.encode('utf-8').strip("><").split("><")
+	print taglist
+	del tags
 	for i,source in enumerate(taglist):
-		for dest in taglist[i+1:]:
-			g.add_vertices([source,dest])
-			g.add_edge(source,dest)
-			# print source,dest
-sideLength = len(g.vs)*20
+		for target in taglist[i+1:]:
+			smart_add_edge(source,target)
+			# print source,target
 
-g.write_svg("helloGraph.svg","auto",sideLength,sideLength,"label","color","rect",10)
 
+#crudely resize svg canvas by # of nodes:
+sideLength = len(g.vs)*10
+
+
+############################
 # write_svg(self, fname, layout='auto', width=None, height=None,
 # labels = 'label', colors = 'color', shapes = 'shape', vertex_size = 10,
 # edge_colors = 'color', font_size = 16, *args, **kwds)
+g.write_svg("helloGraph.svg","auto",sideLength,sideLength,"label","color","rect",10)
 
-# print g
+# for i,v in enumerate(g.vs):
+# 	print i,": ",v['name']
+print g
 
 
 
