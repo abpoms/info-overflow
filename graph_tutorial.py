@@ -1,4 +1,7 @@
 from igraph import Graph
+# help("modules")
+
+
 
 #full graph:
 # g = Graph.Full(3)
@@ -7,12 +10,15 @@ from igraph import Graph
 g = Graph.GRG(50,.3)
 
 
+# surface = cairo.ImageSurface (cairo.FORMAT_ARGB32, 300, 300)
+# ctx = cairo.Context(surface)
+
+
+
+
 #writes a svg file:
-<<<<<<< HEAD
-g.write_svg("helloGraph.svg", "auto", 500, 500)
-=======
 g.write_svg("helloGraph.svg","auto",300,300)
->>>>>>> uncommented out some stuff
+
 
 # write_svg(self, fname, layout='auto', width=None, height=None,
 # labels = 'label', colors = 'color', shapes = 'shape', vertex_size = 10,
