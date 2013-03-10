@@ -3,18 +3,21 @@ from xml.dom import minidom
 ###########
 # for dir in os.walk('./'):
 # 	if dir[0] == "./":
+
+# g = Graph()
+
 XMLpath = "./miniposts.xml"
-# print XMLpath
 XMLdoc = minidom.parse(XMLpath)
-# print XMLdoc
 rowlist = XMLdoc.getElementsByTagName('row')
-print len(rowlist)
+print len(rowlist), "xml rows in memory"
+
+
+
 for row in rowlist:
 	tags = row.getAttribute("Tags")
-	if tags != "":
-		# print type(tags)
-		print
-		taglist = tags.strip("><").split("><")
-		for t in taglist:
-			print t
-		
+	#asdf
+	taglist = tags.strip("><").split("><")
+	for i,source in enumerate(taglist):
+		for dest in taglist[i+1:]:
+			print source,dest
+	print

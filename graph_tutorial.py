@@ -1,19 +1,15 @@
 from igraph import Graph
+
+
+####################
+# To see installed modules:
 # help("modules")
 
-
-
-#full graph:
+# full graph:
 # g = Graph.Full(3)
 
-#GenerateRandomGraph:
+# GenerateRandomGraph:
 g = Graph.GRG(50,.3)
-
-
-# surface = cairo.ImageSurface (cairo.FORMAT_ARGB32, 300, 300)
-# ctx = cairo.Context(surface)
-
-
 
 
 #writes a svg file:
