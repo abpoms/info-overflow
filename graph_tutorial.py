@@ -1,4 +1,4 @@
-from igraph import *
+from igraph import Graph
 
 #full graph:
 # g = Graph.Full(3)
