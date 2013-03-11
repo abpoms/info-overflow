@@ -12,9 +12,9 @@ rowlist = XMLdoc.getElementsByTagName('row')
 print len(rowlist), "xml rows in memory"
 for row in rowlist:
     tags = row.getAttribute("Tags")
-    #asdf
-    taglist = tags.strip("><").split("><")
+    taglist = tags.encode("utf-8").strip("><").split("><")
     for i, source in enumerate(taglist):
+        print taglist
         for dest in taglist[i+1:]:
             print source, dest
     print
