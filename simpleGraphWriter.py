@@ -18,8 +18,7 @@ from xml.dom import minidom
 g = Graph()
 print "entering XML"
 # XMLpath = "./miniposts .xml"
-XMLpath = "/Users/bryanmaass/Dropbox/!Winter13/163/"\
-          "final/so-export-2009-08/posts.xml"
+XMLpath = "./100posts.xml"
 XMLdoc = minidom.parse(XMLpath)
 rowlist = XMLdoc.getElementsByTagName('row')
 print len(rowlist), "rows parsed"
@@ -35,16 +34,16 @@ for row in rowlist:
     del tags
     for i, source in enumerate(taglist):
         for target in taglist[i + 1:]:
-            e = (source,target)
+            e = (source, target)
             if e[0] > e[1]:
-                e = (target,source)
-            w = 1.0/len(taglist)
+                e = (target, source)
+            w = 1.0 / len(taglist)
             if e in adjList:
                 adjList[e] += w
             else:
                 adjList[e] = w
 import operator
-sorted_adjList = sorted(adjList.iteritems(),key=operator.itemgetter(1))
+sorted_adjList = sorted(adjList.iteritems(), key=operator.itemgetter(1))
 
 for line in sorted_adjList:
     print line
