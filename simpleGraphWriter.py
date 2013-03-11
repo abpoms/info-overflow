@@ -15,17 +15,12 @@ from xml.dom import minidom
 # are we using it to map users to tags
 # this implimentation asusmes that we dont care about the users...
 
-g = Graph()
 print "entering XML"
 # XMLpath = "./miniposts .xml"
 XMLpath = "./100posts.xml"
 XMLdoc = minidom.parse(XMLpath)
 rowlist = XMLdoc.getElementsByTagName('row')
 print len(rowlist), "rows parsed"
-
-gen = UniqueIdGenerator()  # check doc on this guy
-# smart add edge, lazy instantiates both vertexes....
-# cant add an edge if one of the verices are not made
 
 adjList = {}
 for row in rowlist:
@@ -43,23 +38,49 @@ for row in rowlist:
             else:
                 adjList[e] = w
 import operator
-sorted_adjList = sorted(adjList.iteritems(), key=operator.itemgetter(1))
+# sorted_adjList = sorted(adjList.iteritems(), key=operator.itemgetter(1))
 
-for line in sorted_adjList:
-    print line
 
-# layout = g.layout('kk')
-# width, height = 9000, 6000
-# surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
-# ctx = cairo.Context(surface)
-# ctx.scale(width, height)
-# ctx.rectangle(0, 0, 1, 1)
-# ctx.set_source_rgba(0, 0, 0, 0)
-# ctx.fill()
-# plot = Graph.plot(g, surface, bbox=(width, height), layout=layout)
-# plot.background = None
-# plot.redraw()
-# surface.write_to_png('example.png')
+# cant add an edge if one of the verices are not made
+g = Graph()
+print g
+g.es["weight"] = 1.0
+gen = UniqueIdGenerator()
+
+for e in adjList:
+    print e[0], e[1]
+    if e[0] not in gen:
+        sourceVertex = {}
+        # sourceVertex["uid"] = gen[e[0]]
+        sourceVertex = e[0]
+        g.add_vertex(sourceVertex)
+        print g
+    if e[1] not in gen:
+        targetVertex = {}
+        # targetVertex["uid"] = gen[e[1]]
+        targetVertex = e[1]
+        g.add_vertex(targetVertex)
+    print adjList[e]
+    g[gen[e[0]], gen[e[1]]] = adjList[e]*15
+
+
+layout = g.layout('kk')
+width, height = 1200, 720
+surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
+ctx = cairo.Context(surface)
+ctx.scale(width, height)
+ctx.rectangle(0, 0, 1, 1)
+ctx.set_source_rgba(0, 0, 0, 0)
+ctx.fill()
+import igraph
+for e in g.es:
+    print e
+
+plot = igraph.plot(g, surface, vertex_label=g.vs["name"], edge_width=g.es["weight"], bbox=(width, height), layout=layout)
+
+plot.background = None
+plot.redraw()
+surface.write_to_png('example.png')
 
 # for i,v in enumerate(g.vs):
 # print i,": ",v['name']
