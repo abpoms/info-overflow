@@ -1,4 +1,4 @@
-import cairo
+# import cairo
 from igraph import Graph, UniqueIdGenerator
 from xml.dom import minidom
 
@@ -52,7 +52,7 @@ for row in rowlist:
     # print taglist
     del tags
     for i, source in enumerate(taglist):
-        for target in taglist[i+1:]:
+        for target in taglist[i + 1:]:
             smart_add_edge(source, target)
             # print source,target
 
@@ -68,7 +68,7 @@ for row in rowlist:
 # g.write_svg("helloGraph.svg", "auto", sideLength, sideLength, "label",
 #            "color", "rect", 10)
 
-<<<<<<< HEAD
+
 # layout = g.layout('kk')
 # width,height = 900,600
 # surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
@@ -81,21 +81,6 @@ for row in rowlist:
 # plot.background = None
 # plot.redraw()
 # surface.write_to_png('example.png')
-=======
- 
-layout = g.layout('sphere')
-width,height = 9000,6000
-surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
-ctx = cairo.Context(surface)
-ctx.scale(width,height)
-ctx.rectangle(0, 0, 1, 1)
-ctx.set_source_rgba(0,0,0,0)
-ctx.fill()
-plot = plot(g, surface, bbox=(width, height), layout=layout)
-plot.background = None
-plot.redraw()
-surface.write_to_png('examplesphere.png')
->>>>>>> drawing png availiabile
 
 # for i,v in enumerate(g.vs):
     # print i,": ",v['name']
