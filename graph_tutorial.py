@@ -12,7 +12,7 @@ help("modules")
 g = Graph.GRG(50, .3)
 
 
-#writes a svg file:
+# writes a svg file:
 g.write_svg("helloGraph.svg", "auto", 300, 300)
 
 # write_svg(self, fname, layout='auto', width=None, height=None,
