@@ -40,9 +40,6 @@ for row in rowlist:
                 adjList[e] += w
             else:
                 adjList[e] = w
-import operator
-# sorted_adjList = sorted(adjList.iteritems(), key=operator.itemgetter(1))
-
 
 # cant add an edge if one of the verices are not made
 g = Graph()
@@ -96,11 +93,11 @@ if drawPNG:
     ctx.set_source_rgba(0, 0, 0, 0)
     ctx.fill()
 
-    plot = igraph.plot(g, surface, vertex_shape="rect", vertex_label=g.vs["name"], edge_width=g.es[
-                       "weight"], bbox=(width, height), layout=layout)
+    plot = igraph.plot(g, surface,
+                       vertex_shape="rect", vertex_label=g.vs["name"],
+                       edge_width=g.es["weight"],
+                       bbox=(width, height), layout=layout)
     # plot = igraph.plot(g, surface, bbox=(width, height), layout=layout)
-
-
     plot.background = None
     plot.redraw()
     surface.write_to_png('example.png')
