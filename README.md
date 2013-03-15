@@ -6,7 +6,9 @@ An interactive visualization of StackOverflow.
 ## Dependencies
 
  - hdf5-1.8.10
+ 
 To install on mac using brew, run
+
     brew install hdf5
 
 ## Building
