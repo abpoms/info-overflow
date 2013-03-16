@@ -1,6 +1,6 @@
 Cython==0.18
 distribute==0.6.27
-numexpr==2.0.1
 numpy==1.7.0
+numexpr==2.0.1
 tables==2.4.0
 wsgiref==0.1.2
