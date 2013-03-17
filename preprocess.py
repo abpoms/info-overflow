@@ -8,7 +8,11 @@ from tables import (IsDescription,
 import tables as tb
 import xml.etree.ElementTree as ET
 import string
+from datetime import datetime
 import numpy
+
+CREATION_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%f"
+CREATION_TIME_FORMAT_VOTE = "%Y-%m-%d"
 
 
 class User(IsDescription):
@@ -24,7 +28,7 @@ class User(IsDescription):
 
 class Vote(IsDescription):
     id = Int32Col()
-    post_id = UInt32Col()
+    post_id = Int32Col()
     vote_type_id = UInt8Col()
     creation_date = Time32Col()
 
@@ -32,78 +36,91 @@ class Vote(IsDescription):
 class Post(IsDescription):
     id = Int32Col()
     post_type_id = UInt8Col()
-    parent_id = UInt32Col()
-    accepted_answer_id = UInt32Col()
+    parent_id = Int32Col()
+    accepted_answer_id = Int32Col()
     creation_date = Time32Col()
     score = UInt32Col()
     viewcount = UInt32Col()
-    owner_user_id = UInt32Col()
+    owner_user_id = Int32Col()
     answer_count = UInt16Col()
     favorite_count = UInt16Col()
     tags = StringCol(itemsize=25, shape=(5,))
 
 
-def process_users(table, xml):
-    tree_iter = ET.iterparse(xml)
+def fast_iter(xml, table, func):
+    tree_iter = ET.iterparse(xml, events=('end', 'start'))
+    tree_iter = iter(tree_iter)
+    occurence = 0
+    event, root = tree_iter.next()
+    for event, elem in tree_iter:
+        if event == "end" and elem.tag == "row":
+            func(elem, event, table)
+            root.clear()
+        occurence += 1
+        if occurence > 100000:
+            occurence = 0
+            table.flush()
+    del tree_iter
+
+
+def process_users(e, event, table):
     user = table.row
-    for event, e in tree_iter:
-        if e.tag != "row":
-            continue
-        user['id'] = e.get("Id")
-        user['name'] = e.get("DisplayName")
-        user['age'] = e.get("Age", -1)
-        user['reputation'] = e.get("Reputation")
-        user['creation_date'] = e.get("CreationDate")
-        user['view'] = e.get("Views")
-        user['upvotes'] = e.get("UpVotes")
-        user['downvotes'] = e.get("DownVotes")
-        user.append()
+    user['id'] = e.get("Id", -111)
+    user['name'] = e.get("DisplayName").encode('ascii', 'ignore')
+    user['age'] = e.get("Age", -1)
+    user['reputation'] = e.get("Reputation", 0)
+    user['creation_date'] = datetime.strptime(
+        e.get("CreationDate"),
+        CREATION_TIME_FORMAT).strftime("%s")
+    user['views'] = e.get("Views", 0)
+    user['upvotes'] = e.get("UpVotes", 0)
+    user['downvotes'] = e.get("DownVotes", 0)
+    user.append()
 
 
-def process_posts(table, xml):
-    tree_iter = ET.iterparse(xml)
+def process_posts(e, event, table):
     post = table.row
-    for event, e in tree_iter:
-        if e.tag != "row":
-            continue
-        post['id'] = e.get("Id")
-        post['post_type_id'] = e.get("PostTypeId")
-        post['parent_id'] = e.get("ParentId", -1)
-        post['accepted_answer_id'] = e.get("AcceptedAnswerId", -1)
-        post['creation_date'] = e.get("CreationDate")
-        post['score'] = e.get("Score")
-        post['viewcount'] = e.get("ViewCount", 0)
-        post['owner_user_id'] = e.get("OwnerUserId")
-        post['answer_count'] = e.get("AnswerCount", 0)
-        post['favorite_count'] = e.get("FavoriteCount", 0)
-        # Parse tags
-        i = 0
-        s = e.get["Tags"]
-        num = 0
-        while True:
-            i = string.find(s, '&lt;', i)
-            if i == -1:
-                break
-            end = string.find(s, '&gt;', i)
-            # Add the tag into the tag array
-            post['tags'][num] = string.substr(s, i+4, end)
-            # Skip past the gt
-            i = end + 3
-            num += 1
-        post.append()
+    post['id'] = e.get("Id", -111)
+    post['post_type_id'] = e.get("PostTypeId", 0)
+    post['parent_id'] = e.get("ParentId", -111)
+    post['accepted_answer_id'] = e.get("AcceptedAnswerId", -111)
+    post['creation_date'] = datetime.strptime(
+        e.get("CreationDate"),
+        CREATION_TIME_FORMAT).strftime("%s")
+    post['score'] = e.get("Score", 0)
+    viewcount = e.get("ViewCount", 0)
+    if (viewcount) == '':
+        viewcount = 0
+    post['viewcount'] = viewcount
+    post['owner_user_id'] = e.get("OwnerUserId", -111)
+    post['answer_count'] = e.get("AnswerCount", 0)
+    post['favorite_count'] = e.get("FavoriteCount", 0)
+    # Parse tags
+    s = e.get("Tags", "")
+    num = 0
+    i = 0
+    while True:
+        i = string.find(s, '&lt;', i)
+        if i == -1:
+            break
+        end = string.find(s, '&gt;', i)
+        # Add the tag into the tag array
+        post['tags'][num] = string.substr(s, i+4, end)
+        # Skip past the gt
+        i = end + 3
+        num += 1
+    post.append()
 
 
-def process_votes(table, xml):
-    tree_iter = ET.iterparse(xml)
+def process_votes(elem, event, table):
     vote = table.row
-    for event, e in tree_iter:
-        if e.tag != "row":
-            continue
-        vote['id'] = e.get("Id")
-        vote['post_id'] = e.get("PostId")
-        vote['vote_type_id'] = e.get("VoteTypeId")
-        vote['creation_date'] = e.get("CreationDate")
-        vote.append()
+    vote['id'] = elem.get("Id")
+    vote['post_id'] = elem.get("PostId")
+    vote['vote_type_id'] = elem.get("VoteTypeId")
+    vote['creation_date'] = datetime.strptime(
+        elem.get("CreationDate"),
+        CREATION_TIME_FORMAT_VOTE).strftime("%s")
+    vote.append()
 
 
 def preprocess_to_hdf5(directory):
@@ -113,10 +130,17 @@ def preprocess_to_hdf5(directory):
     user_table = h5file.createTable("/", 'users', User, 'User information')
     post_table = h5file.createTable("/", 'posts', Post, 'Post information')
     vote_table = h5file.createTable("/", 'votes', Vote, 'Vote information')
-    process_users(user_table, directory + "/users.xml")
-    process_posts(post_table, directory + "/posts.xml")
-    process_votes(vote_table, directory + "/votes.xml")
+    print "Start processing users"
+    fast_iter(directory + "/users.xml", user_table, process_users)
     user_table.flush()
+    print "Finished processing users"
+    print "Start processing posts"
+    fast_iter(directory + "/posts.xml", post_table, process_posts)
     post_table.flush()
+    print "Finished processing posts"
+    print "Start processing votes"
+    fast_iter(directory + "/votes.xml", vote_table, process_votes)
     vote_table.flush()
+    print "Finished processing votes"
+    h5file.close()
     print "Finished preprocessing, data stored in overflow.h5"
