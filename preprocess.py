@@ -9,7 +9,6 @@ import tables as tb
 import xml.etree.ElementTree as ET
 import string
 from datetime import datetime
-import numpy
 
 CREATION_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%f"
 CREATION_TIME_FORMAT_VOTE = "%Y-%m-%d"
@@ -45,6 +44,17 @@ class Post(IsDescription):
     answer_count = UInt16Col()
     favorite_count = UInt16Col()
     tags = StringCol(itemsize=25, shape=(5,))
+
+
+# event_type:
+# 0 = user
+# 1 = vote
+# 2 = post
+class Event(IsDescription):
+    id = Int32Col()
+    timestamp = Time32Col()
+    event_type = UInt8Col()
+    event_id = Int32Col()
 
 
 def fast_iter(xml, table, func):
@@ -122,6 +132,28 @@ def process_votes(elem, event, table):
         CREATION_TIME_FORMAT_VOTE).strftime("%s")
     vote.append()
 
+    
+def add_events(event, table, event_type, uid):
+    table_id = table.cols.id
+    table_date = table.cols.creation_date
+    for i in xrange(len(table)):
+        event['id'] = uid
+        event['timestamp'] = table_date[i]
+        event['event_type'] = event_type  # user type
+        event['event_id'] = table_id[i]
+        event.append()
+        uid += 1
+        print uid
+    return uid
+
+
+def calculate_events(event_table, user_table, post_table, vote_table):
+    event = event_table.row
+    uid = 0
+    uid = add_events(event, user_table, 0, uid)
+    uid = add_events(event, post_table, 2, uid)
+    uid = add_events(event, vote_table, 1, uid)
+
 
 def preprocess_to_hdf5(directory):
     h5file = tb.openFile("overflow.h5",
@@ -130,6 +162,9 @@ def preprocess_to_hdf5(directory):
     user_table = h5file.createTable("/", 'users', User, 'User information')
     post_table = h5file.createTable("/", 'posts', Post, 'Post information')
     vote_table = h5file.createTable("/", 'votes', Vote, 'Vote information')
+    event_table = h5file.createTable("/", 'events', Event,
+                                     'Summation of all other tables')
+    event_table.timestamp.createCSIndex()
     print "Start processing users"
     fast_iter(directory + "/users.xml", user_table, process_users)
     user_table.flush()
@@ -142,5 +177,9 @@ def preprocess_to_hdf5(directory):
     fast_iter(directory + "/votes.xml", vote_table, process_votes)
     vote_table.flush()
     print "Finished processing votes"
+    print "Calculating events..."
+    calculate_events(event_table, user_table, post_table, vote_table)
+    event_table.flush()
+    print "Finished calculating events"
     h5file.close()
     print "Finished preprocessing, data stored in overflow.h5"
