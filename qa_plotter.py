@@ -8,6 +8,7 @@ from pygame.locals import *
 
 debug = False
 
+
 # make dummy list:
 def str_time_prop(start, end, format, prop):
     """Get a time at a proportion of a range of two formatted times.
@@ -148,10 +149,11 @@ def graph_data_formatter(data, (x, y), (width, height)):
 
     return graph_data
 
-graph_upper = graph_data_formatter(qq, (padding, padding), (W - 2 *
-             padding, H / 2 - padding))
-graph_lower = graph_data_formatter(qq, (padding, H / 2), (W - 2 * padding,
-            H / 2 - padding))
+graph_upper = graph_data_formatter(qq, (padding, padding),
+                                   (W - 2 * padding, H / 2 - padding))
+graph_lower = graph_data_formatter(qq,
+                                   (padding, H / 2),
+                                   (W - 2 * padding, H / 2 - padding))
 del qq
 
 while True:
@@ -163,8 +165,9 @@ while True:
     drawPlot(windowSurfaceObj, graph_upper, (padding, padding), (W - 2 *
              padding, H / 2 - padding))
 
-    drawPlot(windowSurfaceObj, graph_lower, (padding, H / 2), (W - 2 * 
-            padding,  H / 2 - padding))
+    drawPlot(windowSurfaceObj, graph_lower,
+             (padding, H / 2),
+             (W - 2 * padding,  H / 2 - padding))
 
     for event in pygame.event.get():
         if event.type == QUIT:
@@ -180,13 +183,15 @@ while True:
             mousex, mousey = event.pos
             current_x_selection = mousex
             mouse_down = True
-            
-
 
     if debug:
         msg = str(mousex) + ", " + str(mousey)
     pygame.draw.line(
-        windowSurfaceObj, red_color, (current_x_selection, padding), (current_x_selection, H - padding), 2)
+        windowSurfaceObj,
+        red_color,
+        (current_x_selection, padding),
+        (current_x_selection, H - padding),
+        2)
 
     pygame.display.update()
     fpsClock.tick(30)
