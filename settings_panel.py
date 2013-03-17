@@ -4,8 +4,10 @@ import Pyro4
 class SettingsPanel():
     def __init__(self):
         pass
+
     def run(self):
-        
+        pass
+
 
 def launch_settings():
     settings = SettingsPanel()
