@@ -132,7 +132,7 @@ def process_votes(elem, event, table):
         CREATION_TIME_FORMAT_VOTE).strftime("%s")
     vote.append()
 
-    
+
 def add_events(event, table, event_type, uid):
     table_id = table.cols.id
     table_date = table.cols.creation_date
@@ -143,7 +143,6 @@ def add_events(event, table, event_type, uid):
         event['event_id'] = table_id[i]
         event.append()
         uid += 1
-        print uid
     return uid
 
 
