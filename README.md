@@ -11,6 +11,20 @@ To install on mac using brew, run
 
     brew install hdf5
 
+ - pygame
+ 
+    brew install hg
+    brew tap homebrew/headonly
+    brew install --HEAD smpeg
+
+    brew tap homebrew/science
+    
+    pip install nose
+    brew install gfortran
+
+    brew install sdl sdl_image sdl_mixer sdl_ttf smpeg portmidi
+    pip install hg+http://bitbucket.com/pygame/pygame
+
 ## Building
 Run
 
