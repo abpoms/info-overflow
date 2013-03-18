@@ -162,6 +162,13 @@ class Vertex():
         self.y += self.dy
 
 
+def findvertex(particles, x, y):
+    for p in particles:
+        if math.hypot(p.x-x, p.y-y) <= p.size:
+            return p
+    return None
+
+
 def spring(edge):
     _spring(edge.s,edge.t, edge.weight)
 
@@ -215,10 +222,9 @@ for n in range(number_of_vertices):
 E = []
 
 for i, s in enumerate(V):
-    for t in V[i:]:
-        if s is not t:
-            if random.random() > .7:
-                E.append (Edge(s, t, random.random()*200))
+    for t in V[i+1:]:
+        if random.random() > .7:
+            E.append (Edge(s, t, random.random()*200))
 
 # for e in E:
 #     print e
@@ -237,8 +243,15 @@ while running:
         elif event.type == pygame.MOUSEBUTTONUP:
             selected_vertex = None
 
-
     screen.fill(background_colour)
+
+    if selected_vertex:
+        (mouseX, mouseY) = pygame.mouse.get_pos()
+        selected_vertex.x = mouseX
+        selected_vertex.y = mouseY
+        # selected_particle.angle = 0.5*math.pi + math.atan2(dy, dx)
+        # selected_particle.speed = math.hypot(dx, dy) * 0.1
+
 
     for edge in E:
             spring(edge)
