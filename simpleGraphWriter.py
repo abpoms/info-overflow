@@ -45,6 +45,7 @@ for row in rowlist:
 g = Graph()
 # print g
 g.es["weight"] = 1.0
+
 gen = UniqueIdGenerator()
 
 for e in adjList:

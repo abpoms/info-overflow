@@ -1,3 +1,4 @@
+from pprint import pprint
 import pygame
 import random
 import math
@@ -6,24 +7,24 @@ import tables as tb
 import cPickle
 
 
-background_colour = (255, 255, 255)
-(width, height) = (400, 400)
-dampen = .01
+background_colour = (50, 50, 50)
+(width, height) = (600, 600)
+dampen = .1
 elasticity = 0.75
 fpsClock = pygame.time.Clock()
-spread = 3
+force_max = 20
 vertex_padding = 0
 frame_count = 0
 current_time = None
 sorted_event_index = None
 
-h5file = tb.openFile('overflow.h5', 'r')
+# h5file = tb.openFile('overflow.h5', 'r')
 
 #input: time
 #output: 
 
-events = []
-event_table = h5file.getNode("/", "events")
+# events = []
+# event_table = h5file.getNode("/", "events")
 
 # print "loading... (should take about a minute)"
 # def createSortedIndexFile():
@@ -61,7 +62,6 @@ class TagGroup():
                     del self.tags[e]
                 else:
                     self.tags[e] -= w
-
 
 class TimeFilter():
     def __init__(self, event_table, sorted_event_index):
@@ -115,91 +115,146 @@ class TimeFilter():
 # for i in eventSequenceGenerator(3):
 #     print i
 
+# Vert(name, total_rep, ...)
+# Edge(w,(v1,v2))
 
 
-# class Edge():
-#     def __init__(self, (s, t), weight):
-#         self.s = s
-#         self.t = t
-#         self.weight = weight
-#         self.color = (0, 0, 255)
-
-# class Vertex():
-#     def __init__(self, (x, y), size):
-#         self.x = x
-#         self.y = y
-#         self.dx = 0
-#         self.dy = 0
-#         self.size = size
-#         self.mass = size
-#         self.color = (0, 0, 255)
-#         self.thickness = 2
-
-#     def __str__(self):
-#         return "(" + str(self.x) + ", " + str(self.y) + ")"
-
-#     def display(self):
-#         pygame.draw.circle(screen, self.color, (
-#             int(self.x), int(self.y)), self.size, self.thickness)
-
-#     def move(self):
-#         self.x += self.dx
-#         self.y += self.dy
-
-# screen = pygame.display.set_mode((width, height))
-# pygame.display.set_caption('')
-
-# number_of_vertices = 50
-# V = []
-# # V = [vertex((50, height / 2), 30),
-# #                 vertex((300, height / 2), 30)]
-# for n in range(number_of_vertices):
-#     size = random.randint(10, 20)
-#     x = random.randint(size, width - size)
-#     y = random.randint(size, height - size)
-#     vertex = Vertex((x, y), size)
-#     V.append(vertex)
+class Edge():
+    def __init__(self, s, t, weight):
+        self.s = s
+        self.t = t
+        self.weight = weight
+        c = weight + 50
+        self.color = (c, c, c)
 
 
-# selected_vertex = None
-# running = True
-# while running:
-#     # print fpsClock.get_fps()
-#     frame_count += 1
-#     for event in pygame.event.get():
-#         if event.type == pygame.QUIT:
-#             running = False
-#         elif event.type == pygame.MOUSEBUTTONDOWN:
-#             (mouseX, mouseY) = pygame.mouse.get_pos()
-#             selected_vertex = findvertex(V, mouseX, mouseY)
-#         elif event.type == pygame.MOUSEBUTTONUP:
-#             selected_vertex = None
+    def __str__(self):
+        return "("+ str(self.s) +", "+ str(self.t) +")"
 
-#     # if selected_vertex:
-#     #     (mouseX, mouseY) = pygame.mouse.get_pos()
-#     #     dx = mouseX - selected_vertex.x
-#     #     dy = mouseY - selected_vertex.y
-#     #     selected_vertex.angle = 0.5 * math.pi + math.atan2(dy, dx)
-#     #     selected_vertex.speed = math.hypot(dx, dy) * 0.1
+    def display(self):
+        pygame.draw.line(screen, self.color,
+                        (self.s.x, self.s.y), (self.t.x, self.t.y), int(self.weight / 30))
 
-#     screen.fill(background_colour)
 
-#     for i, vertex in enumerate(V):
-#         # for vertex2 in V[i + 1:]:
-#             # attract(vertex, vertex2)
-#         vertex.dx = (vertex.dx / number_of_vertices) * dampen
-#         vertex.dy = (vertex.dy / number_of_vertices) * dampen
+class Vertex():
+    def __init__(self, (x, y), size):
+        self.x = x
+        self.y = y
+        self.dx = 0
+        self.dy = 0
+        self.size = size
+        self.mass = size
+        self.color = (230, 230, 230)
+        self.border = (10,10,10)
+        self.thickness = 0
 
-#     for vertex in V:
-#         vertex.dx
-#         vertex.dy
-#         vertex.move()
-#         vertex.display()
+    def __str__(self):
+        return "(" + str(self.x) + ", " + str(self.y) + ")"
 
-#     # for vertex in V:
-#     #     vertex.move()
-#     #     vertex.bounce()
-#     #     vertex.display()
+    def display(self):
+        pygame.draw.circle(screen, self.color, (
+            int(self.x), int(self.y)), self.size, self.thickness)
+        pygame.draw.circle(screen, self.border, (
+            int(self.x), int(self.y)), self.size, 1)
 
-#     pygame.display.flip()
-#     fpsClock.tick(60)
+    def move(self):
+        self.x += self.dx
+        self.y += self.dy
+
+
+def spring(edge):
+    _spring(edge.s,edge.t, edge.weight)
+
+def _spring(v1, v2, weight):
+    between = v1.size + v2.size + 200
+    x_diff = v1.x - v2.x
+    y_diff = v1.y - v2.y
+
+    angle = math.atan2(y_diff, x_diff)
+
+    dist = math.hypot(x_diff, y_diff)
+
+    force = (math.fabs(dist)-between)**3 * .0001
+    if force > force_max:
+        force = force_max
+
+    x_force = math.cos(angle) * force
+    y_force = math.sin(angle) * force
+
+    v1.dx -= x_force
+    v2.dx += x_force
+
+    v1.dy -= y_force
+    v2.dy += y_force
+
+def repel(v1):
+    for v2 in V:
+        dist = v1.size + v2.size + 50
+        x_diff = v1.x - v2.x
+        y_diff = v1.y - v2.y
+        push = math.hypot(x_diff,y_diff)
+        if push != 0:
+            v1.dx += dist/push
+            v2.dx -= dist/push
+            v1.dy += dist/push
+            v2.dy -= dist/push
+
+screen = pygame.display.set_mode((width, height))
+pygame.display.set_caption('')
+
+number_of_vertices = 10
+V = []
+
+for n in range(number_of_vertices):
+    size = random.randint(10, 50)
+    x = random.randint(size, width - size)
+    y = random.randint(size, height - size)
+    vertex = Vertex((x, y), size)
+    V.append(vertex)
+
+E = []
+
+for i, s in enumerate(V):
+    for t in V[i:]:
+        if s is not t:
+            if random.random() > .7:
+                E.append (Edge(s, t, random.random()*200))
+
+# for e in E:
+#     print e
+
+selected_vertex = None
+running = True
+while running:
+    # print fpsClock.get_fps()
+    frame_count += 1
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            (mouseX, mouseY) = pygame.mouse.get_pos()
+            selected_vertex = findvertex(V, mouseX, mouseY)
+        elif event.type == pygame.MOUSEBUTTONUP:
+            selected_vertex = None
+
+
+    screen.fill(background_colour)
+
+    for edge in E:
+            spring(edge)
+    for e in E:
+        # print e
+        e.display()
+    for v in V:
+        # pygame.draw.line(screen, (0, 0, 0),
+        #      (v.x, v.y), (v.x+v.dx*10, v.y+v.dy*10), 2)
+        repel(v)
+        v.dx = v.dx * dampen
+        v.dy = v.dy * dampen
+        v.move()
+        v.display()
+
+    
+
+    pygame.display.flip()
+    fpsClock.tick(60)
