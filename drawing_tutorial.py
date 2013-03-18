@@ -11,7 +11,7 @@ fpsClock = pygame.time.Clock()
 windowSurfaceObj = pygame.display.set_mode((640, 480))
 
 pygame.display.set_caption('Pygame Cheat Sheet')
-
+current_x_selection = 0
 # catSurfaceObj = pygame.image.load('cat.png')
 redColor = pygame.Color(255, 0, 0)
 greenColor = pygame.Color(0, 255, 0)
