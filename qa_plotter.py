@@ -182,6 +182,7 @@ del aq
 
 # Init pyro stuff
 
+Pyro4.config.HOST="10.1.1.4"
 daemon = Pyro4.Daemon()
 ns = Pyro4.locateNS()
 server = Pyro4.Proxy("PYRONAME:info-overflow.server")

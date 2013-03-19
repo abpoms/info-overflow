@@ -417,6 +417,7 @@ class GraphPlotPanel():
 
 def launch_graph_plot():
     q = SimpleQueue()
+    Pyro4.config.HOST="10.1.1.2"
     daemon = Pyro4.Daemon()
     ns = Pyro4.locateNS()
     p = Process(target=_launch_daemon, args=(daemon, q,))
