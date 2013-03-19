@@ -6,7 +6,7 @@ import math
 from pprint import pprint
 from pygame.locals import *
 
-debug = True
+debug = False
 
 
 # make dummy list:
@@ -78,6 +78,12 @@ def drawCoords(ctx):
     msgRectobj.topleft = (mousex, mousey)
     ctx.blit(msgSurfaceObj, msgRectobj)
 
+def draw_text_at(ctx, s, (x,y)):
+    msgSurfaceObj = fontObj.render(s, False, white_color)
+    msgRectobj = msgSurfaceObj.get_rect()
+    msgRectobj.center = (x, y)
+    ctx.blit(msgSurfaceObj, msgRectobj)
+
 
 def make_scale((d_min, d_max), (r_min, r_max)):
     def scaleFunction(y):
@@ -101,10 +107,11 @@ def drawPlot(ctx, data, (x, y), (width, height)):
     y_axis_place = y + height - padding
     if debug:
         pygame.draw.rect(ctx, red_color, (x, y, width, height), 1)
-    pygame.draw.line(
-        ctx, black_color, (x + padding, y), (x + padding, y_axis_place), 5)
-    pygame.draw.line(ctx, black_color, (
-        x + padding, y_axis_place), (x + width, y_axis_place), 5)
+        pygame.draw.line(
+            ctx, black_color, (x + padding, y), (x + padding, y_axis_place), 5)
+        pygame.draw.line(ctx, black_color, (
+            x + padding, y_axis_place), (x + width, y_axis_place), 5)
+
 
     pygame.draw.polygon(ctx, (200, 50, 50), data)
 
@@ -190,14 +197,22 @@ while True:
                 return_time = time_fn(current_x_selection)
             mouse_down = True
 
+    draw_text_at(windowSurfaceObj,
+                time.strftime('%a, %b %d %Y', time.localtime(return_time)),
+                (W/3,padding))
+
     if debug:
         msg = str(return_time)
+
+    line_top = padding * 2
+    if current_x_selection > W/2 + padding:
+        line_top -= padding
     pygame.draw.line(
         windowSurfaceObj,
-        red_color,
-        (current_x_selection, padding),
+        white_color,
+        (current_x_selection, line_top),
         (current_x_selection, H - padding),
-        2)
+        5)
 
     if debug:
         drawCoords(windowSurfaceObj)

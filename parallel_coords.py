@@ -3,6 +3,8 @@ import pygame
 import sys
 import time
 import math
+import random
+
 
 from pygame.locals import *
 pygame.init()
@@ -51,9 +53,9 @@ class Axis():
         return 0
 
     def printLabel(self, value, h, font_size = 20*s):
-        maxValSurface = fontObj.render(str(value), False, white_color)
+        maxValSurface = fontObj.render(str("%0.2f" % value), False, white_color)
         msgRectobj = maxValSurface.get_rect()
-        msgRectobj.topleft = (self.label_x_val + maxValSurface.get_width()/2 ,
+        msgRectobj.topleft = (self.label_x_val,
                                 h - maxValSurface.get_height()/2)
         screen.blit(maxValSurface, msgRectobj)
         pygame.draw.line(screen, white_color,
@@ -125,11 +127,11 @@ class Chart():
             for i in range(5):
                 axisData[i].append(row[i])
 
-            self.axes[0].title = "Average Age"
-            self.axes[1].title = "Post Count"
-            self.axes[2].title = "Reputation"
-            self.axes[3].title = ""
-            self.axes[4].title = ""
+            self.axes[0].title = "Reputation"
+            self.axes[1].title = "Average Age"
+            self.axes[2].title = "Up Votes"
+            self.axes[3].title = "Down Votes"
+            self.axes[4].title = "Score"
 
         for i in range(5):
             self.axes[i].intersect_y = make_scale(axisData[i])
@@ -169,7 +171,7 @@ if debug:
     pygame.draw.rect(screen, red_color,
         (top, left, right - padding, bottom - padding), 1)
 
-L = [[-n,n**2,-n**3/3,n**4,-n**5] for n in range(1000)]
+L = [[-n,random.random(),random.random(),n**4,-n**5] for n in range(30)]
 print L
 
 A = []

@@ -1,6 +1,19 @@
 InfoOverflow
 ============
 
+##Run:
+python graph_plot
+-----
+python info-overflow
+-----
+ python qa_plotter
+-----
+ click on qa_plotter
+-----
+ close info
+-----
+ open info
+
 An interactive visualization of StackOverflow.
 
 ## Dependencies
