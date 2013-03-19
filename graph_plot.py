@@ -13,7 +13,7 @@ from multiprocessing.queues import SimpleQueue
 
 background_colour = (50, 50, 50)
 (width, height) = (1920/2, 1080/2)
-dampen = .01
+dampen = 0
 
 frame_count = 0
 current_time = None
@@ -37,7 +37,7 @@ class TagInfo():
         self.score = 0
         self.answer_count = 0
         self.favorite_count = 0
-        
+
 mouse_sens = 3
 fpsClock = pygame.time.Clock()
 
@@ -147,14 +147,20 @@ class TagGraph():
         # Up Mod
         if vote_type == 2:
             for tag in post['tags']:
+                if not tag in self.vertices:
+                    continue
                 self.vertices[tag].score -= 1
         # Down mod
         elif vote_type == 3:
             for tag in post['tags']:
+                if not tag in self.vertices:
+                    continue
                 self.vertices[tag].score += 1
         # Favorite
         elif vote_type == 5:
             for tag in post['tags']:
+                if not tag in self.vertices:
+                    continue
                 self.vertices[tag].favorite_count -= 1
 
 
@@ -169,7 +175,7 @@ class TimeFilter():
     def setTime(self, time):
         #binary search to find the latest index
         #that is lte this time
-        self.oldindex = self.newindex
+        self.oldindex = 0
         self.newindex = self._bisect_left(time)
         if self.newindex > self.oldindex:
             self.isReverse = False
@@ -188,19 +194,12 @@ class TimeFilter():
                 i -= 1
 
     def _bisect_left(self, x, lo=0, hi=None):
-        if hi is None:
-            hi = len(self.sorted_event_index)
-        while lo < hi:
-            mid = (lo+hi)/2
-            midval = self.event_array[
-                self.sorted_event_index[mid]]['timestamp']
-            if midval+1 <= x:
-                lo = mid+1
-            elif midval-1 > x:
-                hi = mid
-            else:
-                return mid
-        return -1
+        max = self.event_array[0]['timestamp']
+        i = 1
+        while x > max and i < len(self.event_array):
+            max = self.event_array[i]['timestamp']
+            i += 1
+        return i
 
 
 def createSortedIndexFile(events):
@@ -241,6 +240,7 @@ class GraphPlotPanel():
         self.running = True
         self.frame_count = 0
         self.dampen = 0.2
+        self.prune = 0.95
         self.E = []
         self.V = []
         pygame.init()
@@ -250,7 +250,7 @@ class GraphPlotPanel():
 
     def run(self):
         self.frame_count += 1
-        self.dampen = self.dampen * .975
+        self.dampen = self.dampen * .98
         # V.append(Vertex((width/2,height/2), 5,"w0t"))
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -316,7 +316,6 @@ class GraphPlotPanel():
         post = self._post(vote['post_id'], post_func, answer_func)
         if post is None:
             return
-        print post
         vote_func(vote, post)
 
     def _post(self, e_id, post_func, answer_func):
@@ -327,6 +326,8 @@ class GraphPlotPanel():
             post_func(post)
             return post
         else:
+            if not post['parent_id'] in self.post_dict:
+                return None
             question = self.post_dict[post['parent_id']]
             answer_func(post, question)
             post_func(question)
@@ -343,7 +344,10 @@ class GraphPlotPanel():
             post_func = self.tag_group.add_question
             answer_func = self.tag_group.add_answer
             vote_func = self.tag_group.add_vote
+        count = 0
         for event in new_events:
+            count += 1
+            print "count:", count
             t = event['event_type']
             e_id = event['event_id']
             if t == USER_TYPE:
@@ -354,37 +358,74 @@ class GraphPlotPanel():
                 self._post(e_id, post_func, answer_func)
         self._create_visible()
 
-    def _create_visible():
+    def _create_visible(self):
         v_dict = {}
-        for tag, taginfo in self.tag_group.vertices.items():
-            size = taginfo.post_count
+        max_size = 0
+        item_list = self.tag_group.vertices.items()
+        pruned_list = []
+        for tag, taginfo in item_list:
+            if tag == '':
+                continue
+            if taginfo.post_count > max_size:
+                max_size = taginfo.post_count
+        print "max:", max_size
+        for tag, taginfo in item_list:
+            print "size:", taginfo.post_count
+            if (0.2 * max_size) > taginfo.post_count or tag == '':
+                continue
+            pruned_list.append((tag, taginfo))
+            if len(pruned_list) > 4:
+                break
+        for tag, taginfo in pruned_list:
+            if taginfo.post_count > max_size:
+                max_size = taginfo.post_count
+        for tag, taginfo in pruned_list:
+            size = int(taginfo.post_count*1.0/max_size * 256)
+            size /= 4
+            print size
             v_dict[tag] = Vertex((random.randint(size, width-size),
-                                  random.randint(size, height-size),
-                                  size,
-                                  tag))
+                                  random.randint(size, height-size)),
+                                 size,
+                                 tag)
         e_dict = {}
         for e, weight in self.tag_group.edges.items():
+            if not e[0] in v_dict or not e[1]in v_dict:
+                continue
+            print "weight", weight
+            weight = weight + (40 - weight*0.5)*0.5
+            print "new weight", weight
             s = v_dict[e[0]]
             t = v_dict[e[1]]
             e_dict[(s, t)] = Edge(s, t, weight)
         self.V = v_dict.values()
         self.E = e_dict.values()
+        print "done calculating"
+        print len(self.V)
+        print len(self.E)
+
 
 
 def launch_graph_plot():
-    graph_plot = GraphPlotPanel()
     q = SimpleQueue()
-    p = Process(target=_launch_daemon, args=(q,))
+    daemon = Pyro4.Daemon()
+    ns = Pyro4.locateNS()
+    p = Process(target=_launch_daemon, args=(daemon, q,))
     p.start()
+    graph_plot = GraphPlotPanel()
     while True:
         if not q.empty():
-            graph_plot.set_time(q.get())
+            item = q.get()
+            if item[0] == 'time':
+                print "got queue:", item
+                graph_plot.set_time(item[1])
+            elif item[0] == 'vertex_color':
+                pass
         graph_plot.run()
         fpsClock.tick(60)
+        
 
 
-def _launch_daemon(q):
-    daemon = Pyro4.Daemon()
+def _launch_daemon(daemon, q):
     graph_endpoint = GraphPlotEndpoint(q)
     graph_plot_uri = daemon.register(graph_endpoint)
     ns = Pyro4.locateNS()
@@ -398,7 +439,10 @@ class GraphPlotEndpoint():
         pass
 
     def set_time(self, time):
-        q.put(time)
+        print 'received time'
+        self.q.put(('time', time))
+        print 'returning'
+        return None
 
 # class Edge():
 #     def __init__(self, (s, t), weight):
@@ -486,18 +530,17 @@ def _spring(v1, v2, weight, pull):
     x_force = math.cos(angle) * force
     y_force = math.sin(angle) * force
 
-    v1.dx -= x_force
-    v2.dx += x_force
+    v1.dx += x_force
+    v2.dx -= x_force
 
-    v1.dy -= y_force
-    v2.dy += y_force
+    v1.dy += y_force
+    v2.dy -= y_force
 
 
 def repel(v1):
     for v2 in V:
         if v2 == v1:
-            return
-        _spring(v1,v2,350,pull=False)
+            return _spring(v1,v2,3500,pull=False)
 
 
 V = []
@@ -507,4 +550,8 @@ V = []
 def pan(x ,y):
     for v in V:
         v.x+=x * mouse_sens
-        v.y+=y * mouse_sens
+        v.y+=y * mouse_
+
+
+if __name__ == "__main__":
+    launch_graph_plot()
