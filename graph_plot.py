@@ -13,14 +13,14 @@ from multiprocessing.queues import SimpleQueue
 
 background_colour = (50, 50, 50)
 (width, height) = (1920/2, 1080/2)
-dampen = 0
+dampen = 0.01
 
 frame_count = 0
 current_time = None
 sorted_event_index = None
 edge_rate = .05
 number_of_vertices = 30
-force_max = 30
+force_max = 100
 
 red_color = pygame.Color(255, 0, 0)
 lightRed_color = pygame.Color(200, 50, 50)
@@ -257,7 +257,7 @@ class GraphPlotPanel():
                 self.running = False
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 (mouseX, mouseY) = pygame.mouse.get_pos()
-                found = findvertex(V, mouseX, mouseY)
+                found = findvertex(self.V, mouseX, mouseY)
                 if found:
                     self.selected_vertex = found
                 else:
@@ -280,14 +280,17 @@ class GraphPlotPanel():
         for v in self.V:
             # pygame.draw.line(screen, (0, 0, 0),
             #      (v.x, v.y), (v.x+v.dx*10, v.y+v.dy*10), 2)
-            if dampen > 1e-04:
-                repel(v, V)
+            # print self.dampen
+            # if self.dampen > 1e-05:
+            repel(v, self.V)
+            
             if math.fabs(v.dx) > 1000:
                 v.dx *= .7
             if math.fabs(v.dy) > 1000:
                 v.dy *= .7
-            v.dx = v.dx * dampen
-            v.dy = v.dy * dampen
+            
+            v.dx = v.dx * self.dampen
+            v.dy = v.dy * self.dampen
             v.move()
 
         for e in self.E:
@@ -356,6 +359,7 @@ class GraphPlotPanel():
                 self._vote(e_id, vote_func, post_func, answer_func)
             elif t == POST_TYPE:
                 self._post(e_id, post_func, answer_func)
+        self.dampen = dampen
         self._create_visible()
 
     def _create_visible(self):
@@ -374,7 +378,7 @@ class GraphPlotPanel():
             if (0.2 * max_size) > taginfo.post_count or tag == '':
                 continue
             pruned_list.append((tag, taginfo))
-            if len(pruned_list) > 4:
+            if len(pruned_list) > number_of_vertices:
                 break
         for tag, taginfo in pruned_list:
             if taginfo.post_count > max_size:
@@ -388,11 +392,17 @@ class GraphPlotPanel():
                                  size,
                                  tag)
         e_dict = {}
+        max_weight =0
+        e_pruned =[]
         for e, weight in self.tag_group.edges.items():
             if not e[0] in v_dict or not e[1]in v_dict:
                 continue
+            if weight > max_weight:
+                max_weight = weight
+            e_pruned.append((e, weight))
+        for e, weight in e_pruned:
             print "weight", weight
-            weight = weight + (40 - weight*0.5)*0.5
+            weight = (weight*1.0/max_weight)*100
             print "new weight", weight
             s = v_dict[e[0]]
             t = v_dict[e[1]]
@@ -540,11 +550,10 @@ def _spring(v1, v2, weight, pull):
 def repel(v1, V):
     for v2 in V:
         if v2 == v1:
-            return _spring(v1,v2,300,pull=False)
+            return 
+        _spring(v1,v2,300,pull=False)
 
 
-V = []
-#presumably add the SIZE/NAME here,
 
 #randomize position:
 def pan(x ,y, V):
