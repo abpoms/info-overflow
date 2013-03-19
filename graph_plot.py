@@ -10,8 +10,8 @@ import cPickle
 
 background_colour = (50, 50, 50)
 (width, height) = (1920/2, 1080/2)
-dampen = .01
-
+original_dampen = .01
+dampen = original_dampen
 frame_count = 0
 current_time = None
 sorted_event_index = None
@@ -26,9 +26,9 @@ blue_color = pygame.Color(0, 0, 255)
 white_color = pygame.Color(255, 255, 255)
 black_color = pygame.Color(0, 0, 0)
 background_color = pygame.Color(50, 50, 50)
-
 mouse_sens = 3
 fpsClock = pygame.time.Clock()
+
 # h5file = tb.openFile('overflow.h5', 'r')
 
 #input: time
@@ -257,7 +257,7 @@ running = True
 while running:
     # print fpsClock.get_fps()
     frame_count += 1
-    dampen = dampen * .99
+    dampen = dampen * .975
     # V.append(Vertex((width/2,height/2), 5,"w0t"))
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -286,21 +286,22 @@ while running:
             print mouseX, mouseY
             pan(mouseX, mouseY)
 
-    if dampen > 6.31157979432e-05:
-        print dampen
-        for e in E:
-            spring(e)
-        for v in V:
-            # pygame.draw.line(screen, (0, 0, 0),
-            #      (v.x, v.y), (v.x+v.dx*10, v.y+v.dy*10), 2)
+    
+    print dampen
+    for e in E:
+        spring(e)
+    for v in V:
+        # pygame.draw.line(screen, (0, 0, 0),
+        #      (v.x, v.y), (v.x+v.dx*10, v.y+v.dy*10), 2)
+        if dampen > 1e-04:
             repel(v)
-            if math.fabs(v.dx) > 1000:
-                v.dx *= .8
-            if math.fabs(v.dy) > 1000:
-                v.dy *= .8
-            v.dx = v.dx * dampen
-            v.dy = v.dy * dampen
-            v.move()
+        if math.fabs(v.dx) > 1000:
+            v.dx *= .7
+        if math.fabs(v.dy) > 1000:
+            v.dy *= .7
+        v.dx = v.dx * dampen
+        v.dy = v.dy * dampen
+        v.move()
 
     for e in E:
         e.display()
@@ -310,4 +311,4 @@ while running:
     
 
     pygame.display.flip()
-    fpsClock.tick(60)
+    fpsClock.tick(120)

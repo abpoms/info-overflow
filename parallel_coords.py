@@ -9,10 +9,10 @@ pygame.init()
 fpsClock = pygame.time.Clock()
 s = 1 #scaler
 (width, height) = (int(960 * s), int(540 * s))
-padding = 50/s
+padding = 50*s
 screen = pygame.display.set_mode((width, height))
 pygame.display.set_caption('Paralell Coordinates')
-debug = True
+debug = False
 
 red_color = pygame.Color(255, 0, 0)
 lightRed_color = pygame.Color(200, 50, 50)
@@ -24,7 +24,7 @@ background_color = pygame.Color(50, 50, 50)
 msg = 'Hello world!'
 mouse_down = False
 mousex, mousey = 0, 0
-fontObj = pygame.font.Font('freesansbold.ttf', 32*s)
+fontObj = pygame.font.Font('freesansbold.ttf', 24*s)
 
 
 
@@ -46,7 +46,7 @@ class Axis():
 
     #return y value, given dimension data
     def intersect_y(self, value):
-        return height/2
+        return 0
 
     def display(self):
         if self.max_value is not None:
@@ -184,6 +184,9 @@ while True:
                 (mousex, 0), (mousex, height), 1)
             pygame.draw.line(screen, black_color, 
                 (0, mousey), (width, mousey),  1)
+
+    if debug and frame_count % 60 == 0:
+        print "Paralell Coordinates"
     pygame.display.update()
     fpsClock.tick(30)
 
