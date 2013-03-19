@@ -7,6 +7,8 @@ import os.path
 import tables as tb
 import cPickle
 import Pyro4
+from multiprocessing import Process
+from multiprocessing.queues import SimpleQueue
 
 
 background_colour = (50, 50, 50)
@@ -234,9 +236,65 @@ class GraphPlotPanel():
         self.sorted_event_index = createSortedIndexFile(self.event_table)
         self.timefilter = TimeFilter(self.event_array, self.sorted_event_index)
         self.tag_group = TagGraph()
+        self.selected_bg = False
+        self.selected_vertex = None
+        self.running = True
+        self.frame_count = 0
+        self.dampen = 0.2
+        self.E = []
+        self.V = []
+        pygame.init()
+        self.screen = pygame.display.set_mode((width, height))
+        pygame.display.set_caption('')
+
 
     def run(self):
-        pass
+        self.frame_count += 1
+        self.dampen = self.dampen * .975
+        # V.append(Vertex((width/2,height/2), 5,"w0t"))
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.running = False
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                (mouseX, mouseY) = pygame.mouse.get_pos()
+                found = findvertex(V, mouseX, mouseY)
+                if found:
+                    self.selected_vertex = found
+                else:
+                    self.selected_bg = True
+            elif event.type == pygame.MOUSEBUTTONUP:
+                self.selected_vertex = None
+                self.selected_bg = False
+        self.screen.fill(background_color)
+        if self.selected_vertex:
+            (mouseX, mouseY) = pygame.mouse.get_pos()
+            self.selected_vertex.x = mouseX
+            self.selected_vertex.y = mouseY
+        if self.selected_bg:
+            (mouseX, mouseY) = pygame.mouse.get_rel()
+            if math.fabs(mouseX) + math.fabs(mouseY) < 100:
+                print mouseX, mouseY
+                pan(mouseX, mouseY)
+        for e in self.E:
+            spring(e)
+        for v in self.V:
+            # pygame.draw.line(screen, (0, 0, 0),
+            #      (v.x, v.y), (v.x+v.dx*10, v.y+v.dy*10), 2)
+            if dampen > 1e-04:
+                repel(v)
+            if math.fabs(v.dx) > 1000:
+                v.dx *= .7
+            if math.fabs(v.dy) > 1000:
+                v.dy *= .7
+            v.dx = v.dx * dampen
+            v.dy = v.dy * dampen
+            v.move()
+
+        for e in self.E:
+            e.display(self.screen)
+        for v in self.V:
+            v.display(self.screen)
+        pygame.display.flip()
 
     def _load_table(self, table):
         d = {}
@@ -294,19 +352,53 @@ class GraphPlotPanel():
                 self._vote(e_id, vote_func, post_func, answer_func)
             elif t == POST_TYPE:
                 self._post(e_id, post_func, answer_func)
+        self._create_visible()
+
+    def _create_visible():
+        v_dict = {}
+        for tag, taginfo in self.tag_group.vertices.items():
+            size = taginfo.post_count
+            v_dict[tag] = Vertex((random.randint(size, width-size),
+                                  random.randint(size, height-size),
+                                  size,
+                                  tag))
+        e_dict = {}
+        for e, weight in self.tag_group.edges.items():
+            s = v_dict[e[0]]
+            t = v_dict[e[1]]
+            e_dict[(s, t)] = Edge(s, t, weight)
+        self.V = v_dict.values()
+        self.E = e_dict.values()
 
 
 def launch_graph_plot():
     graph_plot = GraphPlotPanel()
+    q = SimpleQueue()
+    p = Process(target=_launch_daemon, args=(q,))
+    p.start()
+    while True:
+        if not q.empty():
+            graph_plot.set_time(q.get())
+        graph_plot.run()
+        fpsClock.tick(60)
+
+
+def _launch_daemon(q):
     daemon = Pyro4.Daemon()
-    graph_plot_uri = daemon.register(graph_plot)
+    graph_endpoint = GraphPlotEndpoint(q)
+    graph_plot_uri = daemon.register(graph_endpoint)
     ns = Pyro4.locateNS()
     ns.register("info-overflow.graph_plot", graph_plot_uri)
-    graph_plot.run()
-    while True:
-       # graph_plot.run()
+    daemon.requestLoop()
+
+
+class GraphPlotEndpoint():
+    def __init__(self, q):
+        self.q = q
         pass
 
+    def set_time(self, time):
+        q.put(time)
 
 # class Edge():
 #     def __init__(self, (s, t), weight):
@@ -325,7 +417,7 @@ class Edge():
     def __str__(self):
         return "("+ str(self.s) +", "+ str(self.t) +")"
 
-    def display(self):
+    def display(self, screen):
         pygame.draw.line(screen, self.color,
                         (self.s.x, self.s.y), (self.t.x, self.t.y),
                         int(self.weight / 15))
@@ -349,7 +441,7 @@ class Vertex():
     def __str__(self):
         return "(" + str(self.x) + ", " + str(self.y) + ")"
 
-    def display(self):
+    def display(self, screen):
         pygame.draw.circle(screen, self.color, (
             int(self.x), int(self.y)), self.size, self.thickness)
         pygame.draw.circle(screen, self.border, (
@@ -359,8 +451,8 @@ class Vertex():
         screen.blit(label, (self.x-label.get_width()/2, self.y-label.get_height()/2))
 
     def move(self):
-        self.x += self.dx
-        self.y += self.dy
+        self.x -= self.dx
+        self.y -= self.dy
 
 
 def findvertex(particles, x, y):
@@ -407,85 +499,12 @@ def repel(v1):
             return
         _spring(v1,v2,350,pull=False)
 
-pygame.init()
-screen = pygame.display.set_mode((width, height))
-pygame.display.set_caption('')
 
 V = []
 #presumably add the SIZE/NAME here,
 
 #randomize position:
-for n in range(number_of_vertices):
-    size = random.randint(10, 50)
-    name = None
-    x = random.randint(size, width - size)
-    y = random.randint(size, height - size)
-    vertex = Vertex((x, y), size, name)
-    V.append(vertex)
-
-# E = []
-E = [Edge(V[0],V[1],50)]
-for i, s in enumerate(V):
-    for t in V[i+1:]:
-        if random.random() > 1-edge_rate:
-            E.append (Edge(s, t, s.size+t.size))
-
 def pan(x ,y):
     for v in V:
         v.x+=x * mouse_sens
         v.y+=y * mouse_sens
-selected_vertex = None
-selected_bg = False
-running = True
-while running:
-    # print fpsClock.get_fps()
-    frame_count += 1
-    dampen = dampen * .975
-    # V.append(Vertex((width/2,height/2), 5,"w0t"))
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-        elif event.type == pygame.MOUSEBUTTONDOWN:
-            (mouseX, mouseY) = pygame.mouse.get_pos()
-            found = findvertex(V, mouseX, mouseY)
-            if found:
-                selected_vertex = found
-            else:
-                selected_bg = True
-        elif event.type == pygame.MOUSEBUTTONUP:
-            selected_vertex = None
-            selected_bg = False
-    screen.fill(background_color)
-    if selected_vertex:
-        (mouseX, mouseY) = pygame.mouse.get_pos()
-        selected_vertex.x = mouseX
-        selected_vertex.y = mouseY
-    if selected_bg:
-        (mouseX, mouseY) = pygame.mouse.get_rel()
-        if math.fabs(mouseX) + math.fabs(mouseY) < 100:
-            print mouseX, mouseY
-            pan(mouseX, mouseY)
-
-    
-    print dampen
-    for e in E:
-        spring(e)
-    for v in V:
-        # pygame.draw.line(screen, (0, 0, 0),
-        #      (v.x, v.y), (v.x+v.dx*10, v.y+v.dy*10), 2)
-        if dampen > 1e-04:
-            repel(v)
-        if math.fabs(v.dx) > 1000:
-            v.dx *= .7
-        if math.fabs(v.dy) > 1000:
-            v.dy *= .7
-        v.dx = v.dx * dampen
-        v.dy = v.dy * dampen
-        v.move()
-
-    for e in E:
-        e.display()
-    for v in V:
-        v.display()
-    pygame.display.flip()
-    fpsClock.tick(120)
