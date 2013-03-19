@@ -56,6 +56,7 @@ mouse_down = False
 pygame.init()
 fpsClock = pygame.time.Clock()
 windowSurfaceObj = pygame.display.set_mode((W, H))
+return_time = 0
 
 pygame.display.set_caption('LineGraph')
 
@@ -72,7 +73,7 @@ fontObj = pygame.font.Font('freesansbold.ttf', 48)
 
 
 def drawCoords(ctx):
-    msgSurfaceObj = fontObj.render(msg, False, blue_color)
+    msgSurfaceObj = fontObj.render(msg, False, white_color)
     msgRectobj = msgSurfaceObj.get_rect()
     msgRectobj.topleft = (mousex, mousey)
     ctx.blit(msgSurfaceObj, msgRectobj)
@@ -152,21 +153,23 @@ def graph_data_formatter(data, (x, y), (width, height)):
 
 graph_upper = graph_data_formatter(qq, (padding, padding),
                                    (W - 2 * padding, H / 2 - padding))
-graph_lower = graph_data_formatter(qq, (padding, H / 2),
+graph_lower = graph_data_formatter(qq,
+                                   (padding, H / 2),
                                    (W - 2 * padding, H / 2 - padding))
+
+time_fn = make_scale( (2 * padding - 1, W - padding +1 ), 
+                      (time.mktime(qq[0][0]), time.mktime(qq[-1][0])) )
 del qq
 
 while True:
     windowSurfaceObj.fill(background_color)
 
-    if debug:
-        drawCoords(windowSurfaceObj)
+    drawPlot(windowSurfaceObj, graph_upper, (padding, padding), (W - 2 *
+             padding, H / 2 - padding))
 
-    drawPlot(windowSurfaceObj, graph_upper, (padding, padding), 
-            (W - 2 * padding, H / 2 - padding))
-
-    drawPlot(windowSurfaceObj, graph_lower, (padding, H / 2),
-            (W - 2 * padding,  H / 2 - padding))
+    drawPlot(windowSurfaceObj, graph_lower,
+             (padding, H / 2),
+             (W - 2 * padding,  H / 2 - padding))
 
     for event in pygame.event.get():
         if event.type == QUIT:
@@ -175,22 +178,29 @@ while True:
         elif event.type == MOUSEMOTION:
             mousex, mousey = event.pos
             if mouse_down:
-                current_x_selection = mousex
+                if mousex > 2 * padding and mousex < W - padding:
+                    current_x_selection = mousex
+                    return_time = time_fn(current_x_selection)
         elif event.type == MOUSEBUTTONUP:
             mouse_down = False
         elif event.type == MOUSEBUTTONDOWN:
             mousex, mousey = event.pos
-            current_x_selection = mousex
+            if mousex > 2 * padding and mousex < W - padding:
+                current_x_selection = mousex
+                return_time = time_fn(current_x_selection)
             mouse_down = True
 
     if debug:
-        msg = str(mousex) + ", " + str(mousey)
+        msg = str(return_time)
     pygame.draw.line(
         windowSurfaceObj,
         red_color,
         (current_x_selection, padding),
         (current_x_selection, H - padding),
         2)
+
+    if debug:
+        drawCoords(windowSurfaceObj)
 
     pygame.display.update()
     fpsClock.tick(30)

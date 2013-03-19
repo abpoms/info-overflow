@@ -25,6 +25,11 @@ XMLdoc = minidom.parse(XMLpath)
 rowlist = XMLdoc.getElementsByTagName('row')
 print len(rowlist), "rows parsed"
 
+
+
+
+
+
 adjList = {}
 for row in rowlist:
     tags = row.getAttribute("Tags")
@@ -35,11 +40,7 @@ for row in rowlist:
             e = (source, target)
             if e[0] > e[1]:
                 e = (target, source)
-            w = 1.0 / len(taglist)
-            if e in adjList:
-                adjList[e] += w
-            else:
-                adjList[e] = w
+             
 
 # cant add an edge if one of the verices are not made
 g = Graph()
