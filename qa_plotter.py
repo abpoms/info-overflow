@@ -5,6 +5,7 @@ import time
 import math
 from pprint import pprint
 from pygame.locals import *
+import Pyro4
 
 debug = False
 
@@ -168,6 +169,13 @@ time_fn = make_scale( (2 * padding - 1, W - padding +1 ),
                       (time.mktime(qq[0][0]), time.mktime(qq[-1][0])) )
 del qq
 
+# Init pyro stuff
+
+daemon = Pyro4.Daemon()
+ns = Pyro4.locateNS()
+server = Pyro4.Proxy("PYRONAME:info-overflow.server")
+return_time = 0
+
 while True:
     windowSurfaceObj.fill(background_color)
 
@@ -190,6 +198,7 @@ while True:
                     return_time = time_fn(current_x_selection)
         elif event.type == MOUSEBUTTONUP:
             mouse_down = False
+            server.set_time(return_time)
         elif event.type == MOUSEBUTTONDOWN:
             mousex, mousey = event.pos
             if mousex > 2 * padding and mousex < W - padding:

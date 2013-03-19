@@ -9,14 +9,19 @@ class OverflowServer():
     def __init__(self):
         self.current_time = 0
         self.tags = set()
+        self.graph_endpoint = None
 
     def get_time(self):
         log("get_time")
         return self.current_time
 
     def set_time(self, time):
-        log("set_time - " + time)
+        log("set_time - " + str(time))
         self.current_time = time
+        if not self.graph_endpoint is None:
+            self.graph_endpoint.set_time(time)
+        print "returning"
+        return None
 
     def select_tag(self, tag):
         log("select_tag - " + tag)
@@ -35,6 +40,8 @@ def launch_server():
     daemon = Pyro4.Daemon()
     server_uri = daemon.register(server)
     ns = Pyro4.locateNS()
+    graph_endpoint = Pyro4.Proxy("PYRONAME:info-overflow.graph_plot")
+    server.graph_endpoint = graph_endpoint
     ns.register("info-overflow.server", server_uri)
     server.run()
     print "Server running"

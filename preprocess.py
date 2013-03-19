@@ -71,6 +71,7 @@ def fast_iter(xml, table, func):
         if occurence > 100000:
             occurence = 0
             table.flush()
+            return
     del tree_iter
 
 
@@ -168,7 +169,7 @@ def preprocess_to_hdf5(directory):
     vote_table = h5file.createTable("/", 'votes', Vote, 'Vote information')
     event_table = h5file.createTable("/", 'events', Event,
                                      'Summation of all other tables')
-    event_table.timestamp.createCSIndex()
+    event_table.cols.timestamp.createCSIndex()
     print "Start processing users"
     fast_iter(directory + "/users.xml", user_table, process_users)
     user_table.flush()
