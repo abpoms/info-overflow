@@ -24,7 +24,7 @@ background_color = pygame.Color(50, 50, 50)
 msg = 'Hello world!'
 mouse_down = False
 mousex, mousey = 0, 0
-fontObj = pygame.font.Font('freesansbold.ttf', 24*s)
+fontObj = pygame.font.Font('freesansbold.ttf', 20*s)
 
 
 
@@ -43,28 +43,47 @@ class Axis():
         self.x = x
         self.min_value = None
         self.max_value = None
-
+        self.top = top + padding
+        self.label_x_val = self.x + 5 * s
+        self.bottom = height - padding*2
     #return y value, given dimension data
     def intersect_y(self, value):
         return 0
 
+    def printLabel(self, value, h, font_size = 20*s):
+        maxValSurface = fontObj.render(str(value), False, white_color)
+        msgRectobj = maxValSurface.get_rect()
+        msgRectobj.topleft = (self.label_x_val + maxValSurface.get_width()/2 ,
+                                h - maxValSurface.get_height()/2)
+        screen.blit(maxValSurface, msgRectobj)
+        pygame.draw.line(screen, white_color,
+                (self.label_x_val-9*s, h),
+                (self.label_x_val+3*s, h), 3)
+
     def display(self):
         if self.max_value is not None:
-            maxValSurface = fontObj.render(str(self.max_value), False, white_color)
-            msgRectobj = maxValSurface.get_rect()
-            msgRectobj.center = (self.x+20, padding*2)
-            screen.blit(maxValSurface, msgRectobj)
+            self.printLabel(self.max_value, self.top)
 
         if self.min_value is not None:
-            minValSurface = fontObj.render(str(self.min_value), False, white_color)
-            msgRectobj = minValSurface.get_rect()
-            msgRectobj.center = (self.x+20, height - padding*2)
-            screen.blit(minValSurface, msgRectobj)
+            self.printLabel(self.min_value, self.bottom)
+
+        if self.min_value is not None and self.max_value is not None:
+            half_val = (self.max_value + self.min_value) / 2
+            half_height = (self.top + self.bottom) / 2
+            self.printLabel(half_val, half_height)
+
+            bq_val = (self.min_value + half_val) / 2
+            bq_height = (self.bottom + half_height) / 2
+            self.printLabel(bq_val, bq_height)
+
+            tq_val = (self.max_value + half_val) / 2
+            tq_height = (self.top + half_height) / 2
+            self.printLabel(tq_val, tq_height)
 
 
-        pygame.draw.line(screen, red_color, 
+        pygame.draw.line(screen, white_color, 
             (self.x, top+padding), (self.x, bottom-padding),  2)
-        msgSurfaceObj = fontObj.render(self.title, False, red_color)
+        msgSurfaceObj = fontObj.render(self.title, False, white_color)
         msgRectobj = msgSurfaceObj.get_rect()
         msgRectobj.center = (self.x, padding)
         screen.blit(msgSurfaceObj, msgRectobj)
@@ -87,7 +106,8 @@ def make_scale(a):
         if x <= d_min:
             raise Exception(str(x) + " too small")
         if d_max <= x:
-            raise Exception(str(x) + " too big")
+            raise Exception(str(x) + " too big: not between("+\
+                                        str(d_min)+", "+str(d_max)+")")
     return scaleFunction
 
 class Chart():
@@ -105,6 +125,12 @@ class Chart():
             for i in range(5):
                 axisData[i].append(row[i])
 
+            self.axes[0].title = "Average Age"
+            self.axes[1].title = "Post Count"
+            self.axes[2].title = "Reputation"
+            self.axes[3].title = ""
+            self.axes[4].title = ""
+
         for i in range(5):
             self.axes[i].intersect_y = make_scale(axisData[i])
             self.axes[i].max_value = max(axisData[i])
@@ -117,13 +143,13 @@ class Chart():
             ax.display()
 
         for line in self.vectors:
-            pygame.draw.line(screen, red_color, 
+            pygame.draw.aaline(screen, red_color, 
                 (self.starting_x, int(self.starting_y)), #from
                 (self.axes[0].x, self.axes[0].intersect_y(line[0])),  1) #to
             self.starting_y += self.increments
 
             for i in range(4):
-                pygame.draw.line(screen, red_color, 
+                pygame.draw.aaline(screen, red_color, 
                     (self.axes[i].x, self.axes[i].intersect_y(line[i])), #from
                     (self.axes[i+1].x, self.axes[i+1].intersect_y(line[i+1])),  1) #to
 
@@ -139,10 +165,11 @@ bottom = height - padding
 right = width - padding
 
 screen.fill(background_color)
-pygame.draw.rect(screen, red_color,
-    (top, left, right - padding, bottom - padding), 1)
+if debug:
+    pygame.draw.rect(screen, red_color,
+        (top, left, right - padding, bottom - padding), 1)
 
-L = [[n,-n/20,3+n/2,4+n**2,500-n] for n in range(100)]
+L = [[-n,n**2,-n**3/3,n**4,-n**5] for n in range(1000)]
 print L
 
 A = []
@@ -154,10 +181,8 @@ for x in xrange(left + 200 * s, right - left, int(150*s)):
 
 c = Chart(A,L)
 c.display()
-
-
+pygame.display.update()
 while True:
-
     for event in pygame.event.get():
         if event.type == QUIT:
             pygame.quit()
@@ -174,8 +199,9 @@ while True:
             mouse_down = True
         elif event.type == MOUSEBUTTONUP:
             mouse_down = False
-            pygame.quit()
-            sys.exit()
+            if debug:
+                pygame.quit()
+                sys.exit()
 
     if mouse_down:
         if debug:
