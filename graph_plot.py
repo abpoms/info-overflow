@@ -134,8 +134,8 @@ class TagGraph():
 
 
 class TimeFilter():
-    def __init__(self, event_table, sorted_event_index):
-        self.event_table = event_table
+    def __init__(self, event_array, sorted_event_index):
+        self.event_array = event_array
         self.sorted_event_index = sorted_event_index
         self.oldindex = 0
         self.newindex = 0
@@ -155,11 +155,11 @@ class TimeFilter():
         i = self.oldindex
         if not self.isReverse:
             while i < self.newindex:
-                yield self.event_table[self.sorted_event_index[i]]
+                yield self.event_array[self.sorted_event_index[i]]
                 i += 1
         elif self.isReverse:
             while i > self.newindex:
-                yield self.event_table[self.sorted_event_index[i]]
+                yield self.event_array[self.sorted_event_index[i]]
                 i -= 1
 
     def _bisect_left(self, x, lo=0, hi=None):
@@ -167,7 +167,8 @@ class TimeFilter():
             hi = len(self.sorted_event_index)
         while lo < hi:
             mid = (lo+hi)/2
-            midval = self.event_table[self.sorted_event_index[mid]][3]
+            midval = self.event_array[
+                self.sorted_event_index[mid]]['timestamp']
             if midval+1 <= x:
                 lo = mid+1
             elif midval-1 > x:
@@ -205,7 +206,7 @@ class GraphPlotPanel():
         self.vote_dict = self._load_table(self.vote_table)
         self.event_array = self._load_array(self.event_table)
         self.sorted_event_index = createSortedIndexFile(self.event_table)
-        self.timefilter = TimeFilter(self.event_table, self.sorted_event_index)
+        self.timefilter = TimeFilter(self.event_array, self.sorted_event_index)
         self.tag_group = TagGraph()
 
     def run(self):
@@ -220,38 +221,32 @@ class GraphPlotPanel():
 
     def _load_array(self, table):
         d = []
-        for row in table.iterows():
-            d.append(row.fetch_all_fields)
+        for row in table.iterrows():
+            d.append(row.fetch_all_fields())
         return d
 
     def _vote(self, e_id, vote_func, post_func, answer_func):
-        vote = [row.fetch_all_fields() for row in
-                self.vote_table.where('id ==' + str(e_id))]
-        print 'id ==' + str(e_id)
-        print vote[0]['id']
-        print vote[0]['post_id']
-        post = self._post(vote[0]['post_id'], post_func, answer_func)
+        if not e_id in self.vote_dict:
+            return
+        vote = self.vote_dict[e_id]
+        post = self._post(vote['post_id'], post_func, answer_func)
         if post is None:
             return
         print post
-        vote_func(vote[0], post)
+        vote_func(vote, post)
 
     def _post(self, e_id, post_func, answer_func):
-        post = [row.fetch_all_fields() for row in
-                self.post_table.where('id ==' + str(e_id))]
-        if len(post) == 0:
+        if not e_id in self.post_dict:
             return None
-        print post[0]
-        if post[0]['post_type_id'] == 1:
-            post_func(post[0])
-            return post[0]
+        post = self.post_dict[e_id]
+        if post['post_type_id'] == 1:
+            post_func(post)
+            return post
         else:
-            question = [row.fetch_all_fields() for row in
-                        self.post_table.where(
-                            'id ==' + str(post[0]['parent_id']))]
-            answer_func(post[0], question[0])
-            post_func(question[0])
-            return question[0]
+            question = self.post_dict[post['parent_id']]
+            answer_func(post, question)
+            post_func(question)
+            return question
 
     def set_time(self, time):
         self.timefilter.setTime(time)
@@ -268,8 +263,7 @@ class GraphPlotPanel():
             t = event['event_type']
             e_id = event['event_id']
             if t == USER_TYPE:
-                user = [row.fetch_all_fields() for row in
-                        self.user_table.where('id ==' + str(e_id))]
+                user = self.user_dict[e_id]
             elif t == VOTE_TYPE:
                 self._vote(e_id, vote_func, post_func, answer_func)
             elif t == POST_TYPE:
