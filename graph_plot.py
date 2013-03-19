@@ -274,14 +274,14 @@ class GraphPlotPanel():
             (mouseX, mouseY) = pygame.mouse.get_rel()
             if math.fabs(mouseX) + math.fabs(mouseY) < 100:
                 print mouseX, mouseY
-                pan(mouseX, mouseY)
+                pan(mouseX, mouseY, self.V)
         for e in self.E:
             spring(e)
         for v in self.V:
             # pygame.draw.line(screen, (0, 0, 0),
             #      (v.x, v.y), (v.x+v.dx*10, v.y+v.dy*10), 2)
             if dampen > 1e-04:
-                repel(v)
+                repel(v, V)
             if math.fabs(v.dx) > 1000:
                 v.dx *= .7
             if math.fabs(v.dy) > 1000:
@@ -525,8 +525,8 @@ def _spring(v1, v2, weight, pull):
     if force > force_max:
         force = force_max
     if pull:
-        force = 200 + 100 * number_of_vertices
-
+        force = 200 + 50 * number_of_vertices
+        
     x_force = math.cos(angle) * force
     y_force = math.sin(angle) * force
 
@@ -537,20 +537,20 @@ def _spring(v1, v2, weight, pull):
     v2.dy -= y_force
 
 
-def repel(v1):
+def repel(v1, V):
     for v2 in V:
         if v2 == v1:
-            return _spring(v1,v2,3500,pull=False)
+            return _spring(v1,v2,300,pull=False)
 
 
 V = []
 #presumably add the SIZE/NAME here,
 
 #randomize position:
-def pan(x ,y):
+def pan(x ,y, V):
     for v in V:
         v.x+=x * mouse_sens
-        v.y+=y * mouse_
+        v.y+=y * mouse_sens
 
 
 if __name__ == "__main__":
