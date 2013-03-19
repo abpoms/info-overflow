@@ -6,6 +6,7 @@ import math
 import os.path
 import tables as tb
 import cPickle
+import Pyro4
 
 
 background_colour = (50, 50, 50)
@@ -27,6 +28,14 @@ white_color = pygame.Color(255, 255, 255)
 black_color = pygame.Color(0, 0, 0)
 background_color = pygame.Color(50, 50, 50)
 
+
+class TagInfo():
+    def __init__(self):
+        self.post_count = 0
+        self.score = 0
+        self.answer_count = 0
+        self.favorite_count = 0
+        
 mouse_sens = 3
 fpsClock = pygame.time.Clock()
 # h5file = tb.openFile('overflow.h5', 'r')
@@ -37,46 +46,118 @@ fpsClock = pygame.time.Clock()
 # events = []
 # event_table = h5file.getNode("/", "events")
 
-# print "loading... (should take about a minute)"
-# def createSortedIndexFile():
-#     sorted_index = events.argsort(order=('timestamp'))
-#     cPickle.dump(sorted_index, open("index_sorted.p", "wb"))
-# if not os.path.isfile("index_sorted.p"):
-#     print "recreating Pickle"
-#     createSortedIndexFile()
-# sorted_event_index = cPickle.load(open('index_sorted.p', 'rb'))
 
-class TagGroup():
+class TagGraph():
     def __init__(self):
         self.tags = {}
+        self.edges = {}
+        self.vertices = {}
+        self.posts = set()
 
-    def add_tags(self, taglist):
+    def _add_post_tag(self, tag, post):
+        if not tag in self.vertices:
+            tg = TagInfo()
+            tg.post_count = 1
+            tg.score = 0
+            self.vertices[tag] = tg
+        else:
+            self.vertices[tag].post_count += 1
+
+    def _remove_post_tag(self, tag, post):
+        self.vertices[tag].post_count -= 1
+        if self.vertices[tag].post_count == 0:
+            del self.vertices[tag]
+
+    def _add_answer_tag(self, tag, answer):
+        if not tag in self.vertices:
+            return
+        self.vertices[tag].answer_count += 1
+
+    def _remove_answer_tag(self, tag, answer):
+        if not tag in self.vertices:
+            return
+        self.vertices[tag].answer_count -= 1
+
+    def add_answer(self, answer, post):
+        for tag in post['tags']:
+            self._add_answer_tag(tag, answer)
+
+    def remove_answer(self, answer, post):
+        for tag in post['tags']:
+            self._remove_answer_tag(tag, answer)
+
+    def add_question(self, post):
+        if post['id'] in self.posts:
+            return
+        self.posts.add(post['id'])
+        taglist = []
+        for tag in post['tags']:
+            taglist.append(tag)
+            self._add_post_tag(tag, post)
         for i, source in enumerate(taglist):
             for target in taglist[i + 1:]:
                 e = (source, target)
                 if e[0] > e[1]:
                     e = (target, source)
                 w = 1.0 / len(taglist)
-                if e in self.tags:
-                    self.tags[e] += w
+                if e in self.edges:
+                    self.edges[e] += w
+                # Add new vertex
                 else:
-                    self.tags[e] = w
+                    self.edges[e] = w
 
-    def remove_tags(self, taglist):
+    def remove_question(self, post):
+        if not post['id'] in self.posts:
+            return
+        self.posts.remove(post['id'])
+        taglist = []
+        for tag in post['tags']:
+            taglist.append(tag)
+            self._remove_post_tag(tag, post)
         for i, source in enumerate(taglist):
             for target in taglist[i + 1:]:
                 e = (source, target)
                 if e[0] > e[1]:
                     e = (target, source)
                 w = 1.0 / len(taglist)
-                if self.tags[e] == w:
-                    del self.tags[e]
+                # Remove vertex
+                if self.edges[e] == w:
+                    del self.edges[e]
                 else:
-                    self.tags[e] -= w
+                    self.edges[e] -= w
+
+    def add_vote(self, vote, post):
+        vote_type = vote['vote_type_id']
+        # Up Mod
+        if vote_type == 2:
+            for tag in post['tags']:
+                self.vertices[tag].score += 1
+        elif vote_type == 3:
+            for tag in post['tags']:
+                self.vertices[tag].score -= 1
+        elif vote_type == 5:
+            for tag in post['tags']:
+                self.vertices[tag].favorite_count += 1
+
+    def remove_vote(self, vote, post):
+        vote_type = vote['vote_type_id']
+        # Up Mod
+        if vote_type == 2:
+            for tag in post['tags']:
+                self.vertices[tag].score -= 1
+        # Down mod
+        elif vote_type == 3:
+            for tag in post['tags']:
+                self.vertices[tag].score += 1
+        # Favorite
+        elif vote_type == 5:
+            for tag in post['tags']:
+                self.vertices[tag].favorite_count -= 1
+
 
 class TimeFilter():
-    def __init__(self, event_table, sorted_event_index):
-        self.event_table = event_table
+    def __init__(self, event_array, sorted_event_index):
+        self.event_array = event_array
         self.sorted_event_index = sorted_event_index
         self.oldindex = 0
         self.newindex = 0
@@ -92,16 +173,15 @@ class TimeFilter():
         else:
             self.isReverse = True
 
-
-    def eventSequenceGenerator(self, time):
+    def event_seq_gen(self):
         i = self.oldindex
         if not self.isReverse:
             while i < self.newindex:
-                yield self.event_table[self.sorted_event_index[i]]
+                yield self.event_array[self.sorted_event_index[i]]
                 i += 1
         elif self.isReverse:
             while i > self.newindex:
-                yield self.event_table[self.sorted_event_index[i]]
+                yield self.event_array[self.sorted_event_index[i]]
                 i -= 1
 
     def _bisect_left(self, x, lo=0, hi=None):
@@ -109,27 +189,130 @@ class TimeFilter():
             hi = len(self.sorted_event_index)
         while lo < hi:
             mid = (lo+hi)/2
-            midval = self.event_table[self.sorted_event_index[mid]][3]
+            midval = self.event_array[
+                self.sorted_event_index[mid]]['timestamp']
             if midval+1 <= x:
                 lo = mid+1
-            elif midval-1 > x: 
+            elif midval-1 > x:
                 hi = mid
             else:
                 return mid
         return -1
 
 
-# Process new events into a tag table
+def createSortedIndexFile(events):
+    print "loading... (should take about a minute)"
+    if not os.path.isfile("index_sorted.p"):
+        print "recreating Pickle"
+        sorted_event_index = events[0:].argsort(order=('timestamp'))
+        cPickle.dump(sorted_event_index, open("index_sorted.p", "wb"))
+    else:
+        sorted_event_index = cPickle.load(open('index_sorted.p', 'rb'))
+    return sorted_event_index
 
-# tf = TimeFilter(event_table, sorted_event_index)
 
-# for i in eventSequenceGenerator(3):
-#     print i
+USER_TYPE = 0
+VOTE_TYPE = 1
+POST_TYPE = 2
 
 # Vert(name, total_rep, ...)
 # Edge(w,(v1,v2))
 
 
+class GraphPlotPanel():
+    def __init__(self):
+        self.h5file = tb.openFile('overflow.h5', 'r')
+        self.event_table = self.h5file.getNode("/", "events")
+        self.user_table = self.h5file.getNode("/", "users")
+        self.post_table = self.h5file.getNode("/", "posts")
+        self.vote_table = self.h5file.getNode("/", "votes")
+        self.user_dict = self._load_table(self.user_table)
+        self.post_dict = self._load_table(self.post_table)
+        self.vote_dict = self._load_table(self.vote_table)
+        self.event_array = self._load_array(self.event_table)
+        self.sorted_event_index = createSortedIndexFile(self.event_table)
+        self.timefilter = TimeFilter(self.event_array, self.sorted_event_index)
+        self.tag_group = TagGraph()
+
+    def run(self):
+        pass
+
+    def _load_table(self, table):
+        d = {}
+        for row in table.iterrows():
+            fields = row.fetch_all_fields()
+            d[fields['id']] = fields
+        return d
+
+    def _load_array(self, table):
+        d = []
+        for row in table.iterrows():
+            d.append(row.fetch_all_fields())
+        return d
+
+    def _vote(self, e_id, vote_func, post_func, answer_func):
+        if not e_id in self.vote_dict:
+            return
+        vote = self.vote_dict[e_id]
+        post = self._post(vote['post_id'], post_func, answer_func)
+        if post is None:
+            return
+        print post
+        vote_func(vote, post)
+
+    def _post(self, e_id, post_func, answer_func):
+        if not e_id in self.post_dict:
+            return None
+        post = self.post_dict[e_id]
+        if post['post_type_id'] == 1:
+            post_func(post)
+            return post
+        else:
+            question = self.post_dict[post['parent_id']]
+            answer_func(post, question)
+            post_func(question)
+            return question
+
+    def set_time(self, time):
+        self.timefilter.setTime(time)
+        new_events = self.timefilter.event_seq_gen()
+        if self.timefilter.isReverse:
+            post_func = self.tag_group.remove_question
+            answer_func = self.tag_group.remove_answer
+            vote_func = self.tag_group.remove_vote
+        else:
+            post_func = self.tag_group.add_question
+            answer_func = self.tag_group.add_answer
+            vote_func = self.tag_group.add_vote
+        for event in new_events:
+            t = event['event_type']
+            e_id = event['event_id']
+            if t == USER_TYPE:
+                user = self.user_dict[e_id]
+            elif t == VOTE_TYPE:
+                self._vote(e_id, vote_func, post_func, answer_func)
+            elif t == POST_TYPE:
+                self._post(e_id, post_func, answer_func)
+
+
+def launch_graph_plot():
+    graph_plot = GraphPlotPanel()
+    daemon = Pyro4.Daemon()
+    graph_plot_uri = daemon.register(graph_plot)
+    ns = Pyro4.locateNS()
+    ns.register("info-overflow.graph_plot", graph_plot_uri)
+    graph_plot.run()
+    while True:
+       # graph_plot.run()
+        pass
+
+
+# class Edge():
+#     def __init__(self, (s, t), weight):
+#         self.s = s
+#         self.t = t
+#         self.weight = weight
+#         self.color = (0, 0, 255)
 class Edge():
     def __init__(self, s, t, weight):
         self.s = s
@@ -137,7 +320,6 @@ class Edge():
         self.weight = weight
         c = weight + 50
         self.color = (c, c, c)
-
 
     def __str__(self):
         return "("+ str(self.s) +", "+ str(self.t) +")"
@@ -157,11 +339,11 @@ class Vertex():
         self.size = size
         self.mass = size
         self.color = lightRed_color
-        self.border = (10,10,10)
+        self.border = (10, 10, 10)
         self.thickness = 0
         self.name = name
-        if self.name == None:
-            self.name = str(random.choice([x for x in range(100)]))
+        if self.name is None:
+            self.name = str(random.choice([v for v in range(100)]))
 
     def __str__(self):
         return "(" + str(self.x) + ", " + str(self.y) + ")"
@@ -191,6 +373,7 @@ def spring(edge):
     pass
     _spring(edge.s,edge.t, edge.weight, pull=True)
 
+    
 def _spring(v1, v2, weight, pull):
     pad = v1.size + v2.size
     x_diff = v1.x - v2.x
@@ -200,13 +383,12 @@ def _spring(v1, v2, weight, pull):
 
     dist = math.hypot(x_diff, y_diff)
 
-    
     force = ((dist-(weight + pad*2)))**3 * .0001
 
     if force > force_max:
         force = force_max
     if pull:
-        force =  200 + 100 * number_of_vertices
+        force = 200 + 100 * number_of_vertices
 
     x_force = math.cos(angle) * force
     y_force = math.sin(angle) * force
@@ -216,6 +398,7 @@ def _spring(v1, v2, weight, pull):
 
     v1.dy -= y_force
     v2.dy += y_force
+
 
 def repel(v1):
     for v2 in V:
@@ -250,7 +433,6 @@ def pan(x ,y):
     for v in V:
         v.x+=x * mouse_sens
         v.y+=y * mouse_sens
-
 selected_vertex = None
 selected_bg = False
 running = True
@@ -272,20 +454,16 @@ while running:
         elif event.type == pygame.MOUSEBUTTONUP:
             selected_vertex = None
             selected_bg = False
-
     screen.fill(background_color)
-
     if selected_vertex:
         (mouseX, mouseY) = pygame.mouse.get_pos()
         selected_vertex.x = mouseX
         selected_vertex.y = mouseY
-
     if selected_bg:
         (mouseX, mouseY) = pygame.mouse.get_rel()
         if math.fabs(mouseX) + math.fabs(mouseY) < 100:
             print mouseX, mouseY
             pan(mouseX, mouseY)
-
     if dampen > 6.31157979432e-05:
         print dampen
         for e in E:
@@ -301,13 +479,9 @@ while running:
             v.dx = v.dx * dampen
             v.dy = v.dy * dampen
             v.move()
-
     for e in E:
         e.display()
     for v in V:
         v.display()
-
-    
-
     pygame.display.flip()
     fpsClock.tick(60)
