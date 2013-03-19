@@ -2,17 +2,29 @@ InfoOverflow
 ============
 
 ##Run:
+open 4 tabs in the env
+cd /Users/bryanmaass/Dropbox/\!Winter13/163/info-overflow;source .env/bin/activate
+
+-----
+1:
+python -Wignore -m Pyro4.naming
+----
+2:
 python graph_plot
 -----
+3:
 python info-overflow
 -----
- python qa_plotter
+4:
+python qa_plotter
 -----
- click on qa_plotter
+click on: qa_plotter
 -----
- close info
+3:
+close info-overflow
 -----
- open info
+4:
+open info
 
 An interactive visualization of StackOverflow.
 

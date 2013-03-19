@@ -32,17 +32,21 @@ def random_date(prop, start="1/1/2008 1:30 PM", end="1/1/2013 4:50 AM"):
 # print randomDate("1/1/2008 1:30 PM", "1/1/2013 4:50 AM", random.random())
 
 
-def random_time_value_pair_maker(size=800, max_value=3000):
+def random_time_value_pair_maker(size=10000, max_value=3000):
     scratch = []
     for x in range(size):
-        t = random_date(random.random())
-        num = random.randint(0, max_value)
-        scratch.append((t, num))
-    return sorted(scratch)
+        t = time.mktime(random_date(random.random()))
+        scratch.append(t)
+    return scratch
 
 if debug:
     print "randomizing values"
 qq = random_time_value_pair_maker(max_value=3)
+aq = random_time_value_pair_maker(max_value=3)
+print qq
+qq = sorted(qq)
+aq = sorted(aq)
+print qq
 
 
 ######################
@@ -97,10 +101,8 @@ def make_scale((d_min, d_max), (r_min, r_max)):
             d_width = d_max - d_min
             r_width = r_max - r_min
             return round(((x - d_min) / d_width * r_width) + r_min)
-        if x <= d_min:
-            raise Exception(str(x) + " too small")
-        if d_max <= x:
-            raise Exception(str(x) + " too big")
+        else:
+            raise Exception(str(d_min) + " " + str(x) + " " + str(d_max))
     return scaleFunction
 
 
@@ -123,8 +125,16 @@ def graph_data_formatter(data, (x, y), (width, height)):
     breaks = [0 for not_used in range(pixelsWide)]
 
     # start_time / end_time in seconds since epoch
-    start_time = time.mktime(data[0][0])
-    end_time = time.mktime(data[-1][0])
+    start_time = data[0]
+    end_time = data[-1]
+
+    for t in data:
+        if t < start_time:
+            start_time = t
+            print "changed start"
+        if t > end_time:
+            print "chjanged end"
+            end_time = t
 
     xScale = make_scale((start_time, end_time), (0, pixelsWide - 1))
 
@@ -132,7 +142,7 @@ def graph_data_formatter(data, (x, y), (width, height)):
         print "filling bins"
     # fill bins
     for i, q in enumerate(data):
-        bin = int(xScale(time.mktime(qq[i][0])))
+        bin = int(xScale(data[i]))
         breaks[bin] = breaks[bin] + 1
 
     del data
@@ -161,13 +171,14 @@ def graph_data_formatter(data, (x, y), (width, height)):
 
 graph_upper = graph_data_formatter(qq, (padding, padding),
                                    (W - 2 * padding, H / 2 - padding))
-graph_lower = graph_data_formatter(qq,
+graph_lower = graph_data_formatter(aq,
                                    (padding, H / 2),
                                    (W - 2 * padding, H / 2 - padding))
 
 time_fn = make_scale( (2 * padding - 1, W - padding +1 ), 
-                      (time.mktime(qq[0][0]), time.mktime(qq[-1][0])) )
+                      (min(qq[0],aq[0]), max(qq[-1],aq[-1])) )
 del qq
+del aq
 
 # Init pyro stuff
 
