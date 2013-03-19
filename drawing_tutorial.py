@@ -18,6 +18,8 @@ greenColor = pygame.Color(0, 255, 0)
 blueColor = pygame.Color(0, 0, 255)
 whiteColor = pygame.Color(255, 255, 255)
 
+
+
 mousex, mousey = 0, 0
 fontObj = pygame.font.Font('freesansbold.ttf', 32)
 msg = 'Hello world!'

@@ -6,3 +6,16 @@ numpy==1.7.0
 pygame==1.9.2pre
 tables==2.4.0
 wsgiref==0.1.2
+
+
+# from pprint import pprint
+# from pygame.locals import *
+# import cPickle
+# import math
+# import os.path
+# import pygame
+# import random
+# import sys
+# import tables as tb
+# import time
+

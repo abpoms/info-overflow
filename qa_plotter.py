@@ -6,7 +6,7 @@ import math
 from pprint import pprint
 from pygame.locals import *
 
-debug = False
+debug = True
 
 
 # make dummy list:
@@ -60,11 +60,12 @@ windowSurfaceObj = pygame.display.set_mode((W, H))
 pygame.display.set_caption('LineGraph')
 
 red_color = pygame.Color(255, 0, 0)
-lightRed_color = pygame.Color(255, 128, 128)
+lightRed_color = pygame.Color(200, 50, 50)
 green_color = pygame.Color(0, 255, 0)
 blue_color = pygame.Color(0, 0, 255)
 white_color = pygame.Color(255, 255, 255)
 black_color = pygame.Color(0, 0, 0)
+background_color = pygame.Color(50, 50, 50)
 mousex, mousey = 0, 0
 msg = "0, 0"
 fontObj = pygame.font.Font('freesansbold.ttf', 48)
@@ -157,7 +158,7 @@ graph_lower = graph_data_formatter(qq,
 del qq
 
 while True:
-    windowSurfaceObj.fill((50, 50, 50))
+    windowSurfaceObj.fill(background_color)
 
     if debug:
         drawCoords(windowSurfaceObj)

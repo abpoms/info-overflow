@@ -1,5 +1,6 @@
 from pprint import pprint
 import pygame
+from pygame.locals import *
 import random
 import math
 import os.path
@@ -8,16 +9,26 @@ import cPickle
 
 
 background_colour = (50, 50, 50)
-(width, height) = (600, 600)
-dampen = .1
-elasticity = 0.75
-fpsClock = pygame.time.Clock()
-force_max = 20
-vertex_padding = 0
+(width, height) = (1920/2, 1080/2)
+dampen = .01
+
 frame_count = 0
 current_time = None
 sorted_event_index = None
+edge_rate = .05
+number_of_vertices = 30
+force_max = 30
 
+red_color = pygame.Color(255, 0, 0)
+lightRed_color = pygame.Color(200, 50, 50)
+green_color = pygame.Color(0, 255, 0)
+blue_color = pygame.Color(0, 0, 255)
+white_color = pygame.Color(255, 255, 255)
+black_color = pygame.Color(0, 0, 0)
+background_color = pygame.Color(50, 50, 50)
+
+mouse_sens = 3
+fpsClock = pygame.time.Clock()
 # h5file = tb.openFile('overflow.h5', 'r')
 
 #input: time
@@ -133,20 +144,24 @@ class Edge():
 
     def display(self):
         pygame.draw.line(screen, self.color,
-                        (self.s.x, self.s.y), (self.t.x, self.t.y), int(self.weight / 30))
+                        (self.s.x, self.s.y), (self.t.x, self.t.y),
+                        int(self.weight / 15))
 
 
 class Vertex():
-    def __init__(self, (x, y), size):
+    def __init__(self, (x, y), size, name=None):
         self.x = x
         self.y = y
         self.dx = 0
         self.dy = 0
         self.size = size
         self.mass = size
-        self.color = (230, 230, 230)
+        self.color = lightRed_color
         self.border = (10,10,10)
         self.thickness = 0
+        self.name = name
+        if self.name == None:
+            self.name = str(random.choice([x for x in range(100)]))
 
     def __str__(self):
         return "(" + str(self.x) + ", " + str(self.y) + ")"
@@ -156,6 +171,9 @@ class Vertex():
             int(self.x), int(self.y)), self.size, self.thickness)
         pygame.draw.circle(screen, self.border, (
             int(self.x), int(self.y)), self.size, 1)
+        fontObj = pygame.font.Font(None, max(self.size,12))
+        label = fontObj.render(self.name, False, white_color)
+        screen.blit(label, (self.x-label.get_width()/2, self.y-label.get_height()/2))
 
     def move(self):
         self.x += self.dx
@@ -170,10 +188,11 @@ def findvertex(particles, x, y):
 
 
 def spring(edge):
-    _spring(edge.s,edge.t, edge.weight)
+    pass
+    _spring(edge.s,edge.t, edge.weight, pull=True)
 
-def _spring(v1, v2, weight):
-    between = v1.size + v2.size + 200
+def _spring(v1, v2, weight, pull):
+    pad = v1.size + v2.size
     x_diff = v1.x - v2.x
     y_diff = v1.y - v2.y
 
@@ -181,9 +200,13 @@ def _spring(v1, v2, weight):
 
     dist = math.hypot(x_diff, y_diff)
 
-    force = (math.fabs(dist)-between)**3 * .0001
+    
+    force = ((dist-(weight + pad*2)))**3 * .0001
+
     if force > force_max:
         force = force_max
+    if pull:
+        force =  200 + 100 * number_of_vertices
 
     x_force = math.cos(angle) * force
     y_force = math.sin(angle) * force
@@ -196,75 +219,92 @@ def _spring(v1, v2, weight):
 
 def repel(v1):
     for v2 in V:
-        dist = v1.size + v2.size + 50
-        x_diff = v1.x - v2.x
-        y_diff = v1.y - v2.y
-        push = math.hypot(x_diff,y_diff)
-        if push != 0:
-            v1.dx += dist/push
-            v2.dx -= dist/push
-            v1.dy += dist/push
-            v2.dy -= dist/push
+        if v2 == v1:
+            return
+        _spring(v1,v2,350,pull=False)
 
+pygame.init()
 screen = pygame.display.set_mode((width, height))
 pygame.display.set_caption('')
 
-number_of_vertices = 10
 V = []
+#presumably add the SIZE/NAME here,
 
+#randomize position:
 for n in range(number_of_vertices):
     size = random.randint(10, 50)
+    name = None
     x = random.randint(size, width - size)
     y = random.randint(size, height - size)
-    vertex = Vertex((x, y), size)
+    vertex = Vertex((x, y), size, name)
     V.append(vertex)
 
-E = []
-
+# E = []
+E = [Edge(V[0],V[1],50)]
 for i, s in enumerate(V):
     for t in V[i+1:]:
-        if random.random() > .7:
-            E.append (Edge(s, t, random.random()*200))
+        if random.random() > 1-edge_rate:
+            E.append (Edge(s, t, s.size+t.size))
 
-# for e in E:
-#     print e
+def pan(x ,y):
+    for v in V:
+        v.x+=x * mouse_sens
+        v.y+=y * mouse_sens
 
 selected_vertex = None
+selected_bg = False
 running = True
 while running:
     # print fpsClock.get_fps()
     frame_count += 1
+    dampen = dampen * .99
+    # V.append(Vertex((width/2,height/2), 5,"w0t"))
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
         elif event.type == pygame.MOUSEBUTTONDOWN:
             (mouseX, mouseY) = pygame.mouse.get_pos()
-            selected_vertex = findvertex(V, mouseX, mouseY)
+            found = findvertex(V, mouseX, mouseY)
+            if found:
+                selected_vertex = found
+            else:
+                selected_bg = True
         elif event.type == pygame.MOUSEBUTTONUP:
             selected_vertex = None
+            selected_bg = False
 
-    screen.fill(background_colour)
+    screen.fill(background_color)
 
     if selected_vertex:
         (mouseX, mouseY) = pygame.mouse.get_pos()
         selected_vertex.x = mouseX
         selected_vertex.y = mouseY
-        # selected_particle.angle = 0.5*math.pi + math.atan2(dy, dx)
-        # selected_particle.speed = math.hypot(dx, dy) * 0.1
 
+    if selected_bg:
+        (mouseX, mouseY) = pygame.mouse.get_rel()
+        if math.fabs(mouseX) + math.fabs(mouseY) < 100:
+            print mouseX, mouseY
+            pan(mouseX, mouseY)
 
-    for edge in E:
-            spring(edge)
+    if dampen > 6.31157979432e-05:
+        print dampen
+        for e in E:
+            spring(e)
+        for v in V:
+            # pygame.draw.line(screen, (0, 0, 0),
+            #      (v.x, v.y), (v.x+v.dx*10, v.y+v.dy*10), 2)
+            repel(v)
+            if math.fabs(v.dx) > 1000:
+                v.dx *= .8
+            if math.fabs(v.dy) > 1000:
+                v.dy *= .8
+            v.dx = v.dx * dampen
+            v.dy = v.dy * dampen
+            v.move()
+
     for e in E:
-        # print e
         e.display()
     for v in V:
-        # pygame.draw.line(screen, (0, 0, 0),
-        #      (v.x, v.y), (v.x+v.dx*10, v.y+v.dy*10), 2)
-        repel(v)
-        v.dx = v.dx * dampen
-        v.dy = v.dy * dampen
-        v.move()
         v.display()
 
     
