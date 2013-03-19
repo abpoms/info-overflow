@@ -9,6 +9,7 @@ import tables as tb
 import xml.etree.ElementTree as ET
 import string
 from datetime import datetime
+import numpy
 
 CREATION_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%f"
 CREATION_TIME_FORMAT_VOTE = "%Y-%m-%d"
@@ -109,16 +110,20 @@ def process_posts(e, event, table):
     s = e.get("Tags", "")
     num = 0
     i = 0
+    arS = []
     while True:
-        i = string.find(s, '&lt;', i)
+        i = string.find(s, '<', i)
         if i == -1:
             break
-        end = string.find(s, '&gt;', i)
+        end = string.find(s, '>', i)
         # Add the tag into the tag array
-        post['tags'][num] = string.substr(s, i+4, end)
+        arS.append(s[i+1:end])
         # Skip past the gt
-        i = end + 3
+        i = end + 1
         num += 1
+    while len(arS) < 5:
+        arS.append('')
+    post['tags'] = numpy.array(arS)
     post.append()
 
 
