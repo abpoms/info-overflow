@@ -3,17 +3,14 @@ import pygame
 from pygame.locals import *
 import random
 import math
-import os.path
 import tables as tb
 import cPickle
-import Pyro4
-from multiprocessing import Process
-from multiprocessing.queues import SimpleQueue
+
 
 
 background_colour = (50, 50, 50)
 (width, height) = (1920/2, 1080/2)
-dampen = .01
+dampen = 0.01
 
 frame_count = 0
 current_time = None
@@ -147,14 +144,20 @@ class TagGraph():
         # Up Mod
         if vote_type == 2:
             for tag in post['tags']:
+                if not tag in self.vertices:
+                    continue
                 self.vertices[tag].score -= 1
         # Down mod
         elif vote_type == 3:
             for tag in post['tags']:
+                if not tag in self.vertices:
+                    continue
                 self.vertices[tag].score += 1
         # Favorite
         elif vote_type == 5:
             for tag in post['tags']:
+                if not tag in self.vertices:
+                    continue
                 self.vertices[tag].favorite_count -= 1
 
 
@@ -169,7 +172,7 @@ class TimeFilter():
     def setTime(self, time):
         #binary search to find the latest index
         #that is lte this time
-        self.oldindex = self.newindex
+        self.oldindex = 0
         self.newindex = self._bisect_left(time)
         if self.newindex > self.oldindex:
             self.isReverse = False
@@ -188,30 +191,13 @@ class TimeFilter():
                 i -= 1
 
     def _bisect_left(self, x, lo=0, hi=None):
-        if hi is None:
-            hi = len(self.sorted_event_index)
-        while lo < hi:
-            mid = (lo+hi)/2
-            midval = self.event_array[
-                self.sorted_event_index[mid]]['timestamp']
-            if midval+1 <= x:
-                lo = mid+1
-            elif midval-1 > x:
-                hi = mid
-            else:
-                return mid
-        return -1
+        max = self.event_array[0]['timestamp']
+        i = 1
+        while x > max and i < len(self.event_array):
+            max = self.event_array[i]['timestamp']
+            i += 1
+        return i
 
-
-def createSortedIndexFile(events):
-    print "loading... (should take about a minute)"
-    if not os.path.isfile("index_sorted.p"):
-        print "recreating Pickle"
-        sorted_event_index = events[0:].argsort(order=('timestamp'))
-        cPickle.dump(sorted_event_index, open("index_sorted.p", "wb"))
-    else:
-        sorted_event_index = cPickle.load(open('index_sorted.p', 'rb'))
-    return sorted_event_index
 
 
 USER_TYPE = 0
@@ -224,23 +210,12 @@ POST_TYPE = 2
 
 class GraphPlotPanel():
     def __init__(self):
-        self.h5file = tb.openFile('overflow.h5', 'r')
-        self.event_table = self.h5file.getNode("/", "events")
-        self.user_table = self.h5file.getNode("/", "users")
-        self.post_table = self.h5file.getNode("/", "posts")
-        self.vote_table = self.h5file.getNode("/", "votes")
-        self.user_dict = self._load_table(self.user_table)
-        self.post_dict = self._load_table(self.post_table)
-        self.vote_dict = self._load_table(self.vote_table)
-        self.event_array = self._load_array(self.event_table)
-        self.sorted_event_index = createSortedIndexFile(self.event_table)
-        self.timefilter = TimeFilter(self.event_array, self.sorted_event_index)
-        self.tag_group = TagGraph()
         self.selected_bg = False
         self.selected_vertex = None
         self.running = True
         self.frame_count = 0
         self.dampen = 0.2
+        self.prune = 0.95
         self.E = []
         self.V = []
         pygame.init()
@@ -248,56 +223,107 @@ class GraphPlotPanel():
         pygame.display.set_caption('')
 
 
-    def run(self):
-        self.frame_count += 1
-        self.dampen = self.dampen * .975
-        if debug:
-            print self.dampen
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self.running = False
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                (mouseX, mouseY) = pygame.mouse.get_pos()
-                found = findvertex(V, mouseX, mouseY)
-                if debug:
-                    print found
-                if found:
-                    self.selected_vertex = found
-                else:
-                    self.selected_bg = True
-            elif event.type == pygame.MOUSEBUTTONUP:
-                self.selected_vertex = None
-                self.selected_bg = False
-        self.screen.fill(background_color)
-        if self.selected_vertex:
-            (mouseX, mouseY) = pygame.mouse.get_pos()
-            self.selected_vertex.x = mouseX
-            self.selected_vertex.y = mouseY
-        if self.selected_bg:
-            (mouseX, mouseY) = pygame.mouse.get_rel()
-            if math.fabs(mouseX) + math.fabs(mouseY) < 500:
-                print mouseX, mouseY
-                pan(mouseX, mouseY, self.V)
-        for e in self.E:
-            spring(e)
-        for v in self.V:
-            # pygame.draw.line(screen, (0, 0, 0),
-            #      (v.x, v.y), (v.x+v.dx*10, v.y+v.dy*10), 2)
-            if dampen > 1e-04:
-                repel(v, V)
-            if math.fabs(v.dx) > 1000:
-                v.dx *= .7
-            if math.fabs(v.dy) > 1000:
-                v.dy *= .7
-            v.dx = v.dx * dampen
-            v.dy = v.dy * dampen
-            v.move()
+def findvertex(x, y):
+    for v in self.V:
+        if math.hypot(v.x - x, v.y - y) <= v.size:
+            return v
+    return None
 
-        for e in self.E:
-            e.display(self.screen)
-        for v in self.V:
-            v.display(self.screen)
-        pygame.display.flip()
+
+def spring(edge):
+    _spring(edge.s, edge.t, edge.weight, edge=True)
+
+    
+def _spring(v1, v2, weight, edge):
+    pad = 3*(v1.size + v2.size)
+    x_diff = v1.x - v2.x
+    y_diff = v1.y - v2.y
+
+    angle = math.atan2(y_diff, x_diff)
+
+    dist = math.hypot(x_diff, y_diff)
+
+    force = 30 * (dist - pad)
+
+    if force > force_max:
+        force = force_max
+    if edge:
+        force = 200 + 50 * number_of_vertices
+        
+    x_force = math.cos(angle) * force
+    y_force = math.sin(angle) * force
+
+    v1.dx += x_force
+    v2.dx -= x_force
+
+    v1.dy += y_force
+    v2.dy -= y_force
+
+
+def repel(self, v1):
+    for v2 in V:
+        if v2 == v1:
+            return
+        _spring(v1,v2,300,pull=False)
+
+
+
+    def pan(self, x ,y):
+        for v in V:
+            v.x+=x * mouse_sens
+            v.y+=y * mouse_sens
+
+
+    def run(self):
+        while(self.running):   
+            self.frame_count += 1   
+            self.dampen = self.dampen * .97
+            # V.append(Vertex((width/2,height/2), 5,"w0t"))
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    (mouseX, mouseY) = pygame.mouse.get_pos()
+                    found = findvertex(self.V, mouseX, mouseY)
+                    if found:
+                        self.selected_vertex = found
+                    else:
+                        self.selected_bg = True
+                elif event.type == pygame.MOUSEBUTTONUP:
+                    self.selected_vertex = None
+                    self.selected_bg = False
+            self.screen.fill(background_color)
+            if self.selected_vertex:
+                (mouseX, mouseY) = pygame.mouse.get_pos()
+                self.selected_vertex.x = mouseX
+                self.selected_vertex.y = mouseY
+            if self.selected_bg:
+                (mouseX, mouseY) = pygame.mouse.get_rel()
+                if math.fabs(mouseX) + math.fabs(mouseY) < 100:
+                    print mouseX, mouseY
+                    pan(mouseX, mouseY, self.V)
+            for e in self.E:
+                spring(e)
+            for v in self.V:
+                # pygame.draw.line(screen, (0, 0, 0),
+                #      (v.x, v.y), (v.x+v.dx*10, v.y+v.dy*10), 2)
+                # print self.dampen
+                # if self.dampen > 1e-05:
+                repel(v, self.V)
+                if math.fabs(v.dx) > 1000:
+                    v.dx *= .7
+                if math.fabs(v.dy) > 1000:
+                    v.dy *= .7
+                v.dx = v.dx * dampen
+                v.dy = v.dy * dampen
+                v.move()
+
+            for e in self.E:
+                e.display(self.screen)
+            for v in self.V:
+                v.display(self.screen)
+            pygame.display.flip()
+            fpsClock.tick(60)
 
     def _load_table(self, table):
         d = {}
@@ -319,7 +345,6 @@ class GraphPlotPanel():
         post = self._post(vote['post_id'], post_func, answer_func)
         if post is None:
             return
-        print post
         vote_func(vote, post)
 
     def _post(self, e_id, post_func, answer_func):
@@ -330,6 +355,8 @@ class GraphPlotPanel():
             post_func(post)
             return post
         else:
+            if not post['parent_id'] in self.post_dict:
+                return None
             question = self.post_dict[post['parent_id']]
             answer_func(post, question)
             post_func(question)
@@ -346,7 +373,10 @@ class GraphPlotPanel():
             post_func = self.tag_group.add_question
             answer_func = self.tag_group.add_answer
             vote_func = self.tag_group.add_vote
+        count = 0
         for event in new_events:
+            count += 1
+            print "count:", count
             t = event['event_type']
             e_id = event['event_id']
             if t == USER_TYPE:
@@ -355,39 +385,80 @@ class GraphPlotPanel():
                 self._vote(e_id, vote_func, post_func, answer_func)
             elif t == POST_TYPE:
                 self._post(e_id, post_func, answer_func)
+        self.dampen = dampen
         self._create_visible()
 
-    def _create_visible():
+    def _create_visible(self):
         v_dict = {}
-        for tag, taginfo in self.tag_group.vertices.items():
-            size = taginfo.post_count
+        max_size = 0
+        item_list = self.tag_group.vertices.items()
+        pruned_list = []
+        for tag, taginfo in item_list:
+            if tag == '':
+                continue
+            if taginfo.post_count > max_size:
+                max_size = taginfo.post_count
+        print "max:", max_size
+        for tag, taginfo in item_list:
+            print "size:", taginfo.post_count
+            if (0.2 * max_size) > taginfo.post_count or tag == '':
+                continue
+            pruned_list.append((tag, taginfo))
+            if len(pruned_list) > number_of_vertices:
+                break
+        for tag, taginfo in pruned_list:
+            if taginfo.post_count > max_size:
+                max_size = taginfo.post_count
+        for tag, taginfo in pruned_list:
+            size = int(taginfo.post_count*1.0/max_size * 256)
+            size /= 4
+            print size
             v_dict[tag] = Vertex((random.randint(size, width-size),
-                                  random.randint(size, height-size),
-                                  size,
-                                  tag))
+                                  random.randint(size, height-size)),
+                                 size,
+                                 tag)
         e_dict = {}
+        max_weight = 0
+        e_pruned = []
         for e, weight in self.tag_group.edges.items():
+            if not e[0] in v_dict or not e[1]in v_dict:
+                continue
+            if weight > max_weight:
+                max_weight = weight
+            e_pruned.append((e, weight))
+        for e, weight in e_pruned:
+            print "weight", weight
+            weight = (weight*1.0/max_weight)*100
+            print "new weight", weight
             s = v_dict[e[0]]
             t = v_dict[e[1]]
             e_dict[(s, t)] = Edge(s, t, weight)
         self.V = v_dict.values()
         self.E = e_dict.values()
+        print "done calculating"
+        print len(self.V)
+        print len(self.E)
 
 
 def launch_graph_plot():
     graph_plot = GraphPlotPanel()
-    q = SimpleQueue()
-    p = Process(target=_launch_daemon, args=(q,))
-    p.start()
-    while True:
-        if not q.empty():
-            graph_plot.set_time(q.get())
-        graph_plot.run()
-        fpsClock.tick(60)
+    for n in range(16):
+        size = random.choice([k for k in range(20, 50, 5)])
+        x = random.choice([k for k in range(size, width + size, 5)])
+        y = random.choice([k for k in range(size, height + size, 5)])
+        v = Vertex((x, y), size)
+        graph_plot.V.append(v)
+    for i in range(10):
+        weight = random.choice([k for k in range(20, 50, 5)])
+        v1spot = random.choice([k for k in range(0, len(graph_plot.V))])
+        v2spot = random.choice([k for k in range(0, len(graph_plot.V))])
+        e = Edge(graph_plot.V[v1spot], graph_plot.V[v2spot], weight)
+        graph_plot.E.append(e)
+
+    graph_plot.run()
 
 
-def _launch_daemon(q):
-    daemon = Pyro4.Daemon()
+def _launch_daemon(daemon, q):
     graph_endpoint = GraphPlotEndpoint(q)
     graph_plot_uri = daemon.register(graph_endpoint)
     ns = Pyro4.locateNS()
@@ -401,7 +472,10 @@ class GraphPlotEndpoint():
         pass
 
     def set_time(self, time):
-        q.put(time)
+        print 'received time'
+        self.q.put(('time', time))
+        print 'returning'
+        return None
 
 # class Edge():
 #     def __init__(self, (s, t), weight):
@@ -423,7 +497,7 @@ class Edge():
     def display(self, screen):
         pygame.draw.line(screen, self.color,
                         (self.s.x, self.s.y), (self.t.x, self.t.y),
-                        int(self.weight / 15))
+                        int(self.weight))
 
 
 class Vertex():
@@ -458,54 +532,7 @@ class Vertex():
         self.y -= self.dy
 
 
-def findvertex(particles, x, y):
-    for p in particles:
-        if math.hypot(p.x-x, p.y-y) <= p.size:
-            return p
-    return None
 
 
-def spring(edge):
-    pass
-    _spring(edge.s,edge.t, edge.weight, pull=True)
-
-    
-def _spring(v1, v2, weight, pull):
-    pad = v1.size + v2.size
-    x_diff = v1.x - v2.x
-    y_diff = v1.y - v2.y
-
-    angle = math.atan2(y_diff, x_diff)
-
-    dist = math.hypot(x_diff, y_diff)
-
-    force = ((dist-(weight + pad*2)))**3 * .0001
-
-    if force > force_max:
-        force = force_max
-    if pull:
-        force = 200 + 50 * number_of_vertices
-
-    x_force = math.cos(angle) * force
-    y_force = math.sin(angle) * force
-
-    v1.dx -= x_force
-    v2.dx += x_force
-
-    v1.dy -= y_force
-    v2.dy += y_force
-
-
-def repel(v1, V):
-    for v2 in V:
-        if v2 == v1:
-            return
-        _spring(v1,v2,300,pull=False)
-
-#presumably add the SIZE/NAME here,
-
-#randomize position:
-def pan(x ,y):
-    for v in V:
-        v.x+=x * mouse_sens
-        v.y+=y * mouse_sens
+if __name__ == "__main__":
+    launch_graph_plot()

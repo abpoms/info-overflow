@@ -37,6 +37,7 @@ class OverflowServer():
 
 def launch_server():
     server = OverflowServer()
+    Pyro4.config.HOST="10.1.1.5"
     daemon = Pyro4.Daemon()
     server_uri = daemon.register(server)
     ns = Pyro4.locateNS()
