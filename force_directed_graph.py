@@ -7,8 +7,7 @@ import math
 background_colour = (50, 50, 50)
 (width, height) = (1280, 700)
 dampen = 0.01
-dampen_decrease = .95
-"""  This is a doc """
+dampen_decrease = 1
 name_list = ["Lorem", "ipsum", "dolor", "sit", "amet", "consectetur", "adipiscing", "elit", "Integer", "nec", "odio", "Praesent"]
 
 frame_count = 0
@@ -18,6 +17,7 @@ edge_rate = .01
 number_of_vertices = 0
 number_of_edges = 0
 force_max = 100
+mouse_sens = .4
 
 monokai_bg = pygame.Color(
     int(256 * 0.1333), int(256 * 0.1333), int(256 * 0.1333))
@@ -45,8 +45,6 @@ class TagInfo():
         self.answer_count = 0
         self.favorite_count = 0
         
-mouse_sens = 2
-fpsClock = pygame.time.Clock()
 
 # h5file = tb.openFile('overflow.h5', 'r')
 
@@ -211,11 +209,6 @@ class TimeFilter():
         return i
 
 
-
-# Vert(name, total_rep, ...)
-# Edge(w,(v1,v2))
-
-
 class GraphPlotPanel():
     def __init__(self):
         self.selected_bg = False
@@ -226,7 +219,9 @@ class GraphPlotPanel():
         self.dampen_decrease = dampen_decrease
         self.E = []
         self.V = []
+        self.mouse_sens = mouse_sens
         pygame.init()
+        self.fpsClock = pygame.time.Clock()
         pygame.mixer.init(buffer=256)
         pygame.mixer.music.load('blip.wav')
         self.info_font = pygame.font.SysFont("monospace", 15)
@@ -282,8 +277,8 @@ class GraphPlotPanel():
 
     def pan(self, x, y):
         for v in self.V:
-            v.x += x * mouse_sens
-            v.y += y * mouse_sens
+            v.x += x * self.mouse_sens
+            v.y += y * self.mouse_sens
 
     # def buildRandomGraph(self, number_of_vertices, edge_rate):
     #     for n in range(self.):
@@ -369,13 +364,18 @@ class GraphPlotPanel():
                 1,
                 word_color)
             edge_number_info = self.info_font.render(
-                "Edges: " + str(len(self.E)),
+                "    Edges: " + str(len(self.E)),
+                1,
+                word_color)
+            fps_number_info = self.info_font.render(
+                "      FPS: " + str(self.fpsClock.get_fps())[:5],
                 1,
                 word_color)
             self.screen.blit(vertex_number_info, (10, 10))
             self.screen.blit(edge_number_info, (10, 30))
+            self.screen.blit(fps_number_info, (10, 50))
             pygame.display.flip()
-            fpsClock.tick(60)
+            self.fpsClock.tick(120)
 
 
 def launch_graph_plot():
