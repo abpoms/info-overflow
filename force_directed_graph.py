@@ -229,6 +229,7 @@ class GraphPlotPanel():
         pygame.init()
         pygame.mixer.init(buffer=256)
         pygame.mixer.music.load('blip.wav')
+        self.info_font = pygame.font.SysFont("monospace", 15)
         self.screen = pygame.display.set_mode((width, height))
         pygame.display.set_caption('')
 
@@ -341,7 +342,7 @@ class GraphPlotPanel():
                 (mouseX, mouseY) = pygame.mouse.get_pos()
                 # if math.fabs(mouseX) + math.fabs(mouseY) < 500:
                 self.pan(int(mouseX - width / 2) * -.2,
-                        (int(mouseY - height / 2)* -.2))
+                        (int(mouseY - height / 2) * -.2))
             if self.dampen > .00001:
                 for e in self.E:
                     self.spring(e)
@@ -362,6 +363,17 @@ class GraphPlotPanel():
                 e.display(self.screen)
             for v in self.V:
                 v.display(self.screen)
+            # display number of edges and verticies
+            vertex_number_info = self.info_font.render(
+                "Vertecies: " + str(len(self.V)),
+                1,
+                word_color)
+            edge_number_info = self.info_font.render(
+                "Edges: " + str(len(self.E)),
+                1,
+                word_color)
+            self.screen.blit(vertex_number_info, (10, 10))
+            self.screen.blit(edge_number_info, (10, 30))
             pygame.display.flip()
             fpsClock.tick(60)
 
