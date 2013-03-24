@@ -13,7 +13,7 @@ import math
 # import os.path
 
 background_colour = (50, 50, 50)
-(width, height) = (1920, 1000)
+(width, height) = (800, 800)
 
 """prints interesting info"""
 debug = False
@@ -27,7 +27,7 @@ dampen = 0.01
 dampen_decrease = .1
 
 """pad_scaler: 4 is big, 2.5 is cozy"""
-pad_scaler = 2.5
+pad_scaler = 2
 
 """can increase the visual size of nodes and edges"""
 view_size_scaler = 1
@@ -216,22 +216,22 @@ class GraphPlotPanel():
                         self.selected_vertex.border_color = selected_color
                     else:
                         self.selected_bg = True
-                # elif event.type == pygame.MOUSEBUTTONUP:
-                #     # if self.selected_vertex:
-                #     #     self.selected_vertex.border_color = vertex_boarder_color
-                #     self.selected_vertex = None
-                #     self.selected_bg = False
-                # elif event.type == pygame.MOUSEMOTION:
-                #     (mouseX, mouseY) = pygame.mouse.get_pos()
-                #     found = self.findvertex(mouseX, mouseY)
-                #     if found:
-                #         self.hovered_vertex = found
-                #         self.hovered_vertex.border_color = selected_color
-                #         self.hovered_vertex.color = selected_color
-                #     elif self.hovered_vertex:
-                #         self.hovered_vertex.border_color = vertex_boarder_color
-                #         self.hovered_vertex.color = vertex_color
-                #         self.hovered_vertex = None
+                elif event.type == pygame.MOUSEBUTTONUP:
+                    if self.selected_vertex:
+                        self.selected_vertex.border_color = vertex_boarder_color
+                    self.selected_vertex = None
+                    self.selected_bg = False
+                elif event.type == pygame.MOUSEMOTION:
+                    (mouseX, mouseY) = pygame.mouse.get_pos()
+                    found = self.findvertex(mouseX, mouseY)
+                    if found:
+                        self.hovered_vertex = found
+                        self.hovered_vertex.border_color = selected_color
+                        self.hovered_vertex.color = selected_color
+                    elif self.hovered_vertex:
+                        self.hovered_vertex.border_color = vertex_boarder_color
+                        self.hovered_vertex.color = vertex_color
+                        self.hovered_vertex = None
             self.screen.fill(background_color)
             if self.selected_vertex:
                 (mouseX, mouseY) = pygame.mouse.get_pos()
@@ -249,13 +249,13 @@ class GraphPlotPanel():
             self.calculate_positions()
 
             for e in self.E:
-                # if e.s == self.selected_vertex or\
-                #    e.t == self.selected_vertex or\
-                #    e.s == self.hovered_vertex or\
-                #    e.t == self.hovered_vertex:
-                #     e.color = selected_color
-                # else:
-                #     e.color = edge_color
+                if e.s == self.selected_vertex or\
+                   e.t == self.selected_vertex or\
+                   e.s == self.hovered_vertex or\
+                   e.t == self.hovered_vertex:
+                    e.color = selected_color
+                else:
+                    e.color = edge_color
                 e.display(self.screen)
             for v in self.V:
                 v.display(self.screen)
@@ -320,7 +320,7 @@ class Vertex():
         self.border_color = vertex_boarder_color
         self.thickness = 0
         self.degree = 0
-        self.size = size * 4
+        self.size = size
         self.name = name
         if self.name is None:
             self.name = str(random.choice([v for v in range(100)]))
