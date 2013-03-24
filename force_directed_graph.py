@@ -13,7 +13,7 @@ import math
 # import os.path
 
 background_colour = (50, 50, 50)
-(width, height) = (1280, 700)
+(width, height) = (1920, 1000)
 
 """prints interesting info"""
 debug = False
@@ -24,7 +24,7 @@ dampen = 0.01
 """the rate at which the dampening increases after
     adding an edge or a node, or calling shake
     0 means none"""
-dampen_decrease = .01
+dampen_decrease = .1
 
 """pad_scaler: 4 is big, 2.5 is cozy"""
 pad_scaler = 2.5
@@ -64,15 +64,8 @@ vertex_color = monokai_purple
 vertex_boarder_color = monokai_blue
 word_color = monokai_white
 edge_color = monokai_blue
+selected_color = monokai_orange
 debug_color = monokai_green
-
-class TagInfo():
-    def __init__(self):
-        self.post_count = 0
-        self.score = 0
-        self.answer_count = 0
-        self.favorite_count = 0
-        
 
 # h5file = tb.openFile('overflow.h5', 'r')
 
@@ -89,6 +82,7 @@ class GraphPlotPanel():
     def __init__(self):
         self.selected_bg = False
         self.selected_vertex = None
+        self.hovered_vertex = None
         self.running = True
         self.frame_count = 0
         self.dampen = dampen
@@ -200,27 +194,44 @@ class GraphPlotPanel():
                 #checking pressed keys
                 keys = pygame.key.get_pressed()
                 if event.type == pygame.KEYDOWN:
-                    if keys[pygame.K_s or pygame.K_S]:
+                    if keys[pygame.K_s]:
                         self.shake()
-                    if keys[pygame.K_v or pygame.K_V]:
+                    if keys[pygame.K_v]:
                         self.add_node()
-                    if keys[pygame.K_t or pygame.K_T]:
+                    if keys[pygame.K_t]:
                         for x in range(10):
                             self.add_node()
-                    if keys[pygame.K_e or pygame.K_E]:
-                        self.add_edge()
+                    if keys[pygame.K_e]:
+                        if event.mod & KMOD_SHIFT:
+                            for x in range(10):
+                                self.add_edge()
+                        else:
+                            self.add_edge()
                 if event.type == pygame.QUIT:
                     self.running = False
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     (mouseX, mouseY) = pygame.mouse.get_pos()
-                    found = self.findvertex(mouseX, mouseY)
-                    if found:
-                        self.selected_vertex = found
+                    self.selected_vertex = self.findvertex(mouseX, mouseY)
+                    if self.selected_vertex:
+                        self.selected_vertex.border_color = selected_color
                     else:
                         self.selected_bg = True
-                elif event.type == pygame.MOUSEBUTTONUP:
-                    self.selected_vertex = None
-                    self.selected_bg = False
+                # elif event.type == pygame.MOUSEBUTTONUP:
+                #     # if self.selected_vertex:
+                #     #     self.selected_vertex.border_color = vertex_boarder_color
+                #     self.selected_vertex = None
+                #     self.selected_bg = False
+                # elif event.type == pygame.MOUSEMOTION:
+                #     (mouseX, mouseY) = pygame.mouse.get_pos()
+                #     found = self.findvertex(mouseX, mouseY)
+                #     if found:
+                #         self.hovered_vertex = found
+                #         self.hovered_vertex.border_color = selected_color
+                #         self.hovered_vertex.color = selected_color
+                #     elif self.hovered_vertex:
+                #         self.hovered_vertex.border_color = vertex_boarder_color
+                #         self.hovered_vertex.color = vertex_color
+                #         self.hovered_vertex = None
             self.screen.fill(background_color)
             if self.selected_vertex:
                 (mouseX, mouseY) = pygame.mouse.get_pos()
@@ -238,11 +249,18 @@ class GraphPlotPanel():
             self.calculate_positions()
 
             for e in self.E:
+                # if e.s == self.selected_vertex or\
+                #    e.t == self.selected_vertex or\
+                #    e.s == self.hovered_vertex or\
+                #    e.t == self.hovered_vertex:
+                #     e.color = selected_color
+                # else:
+                #     e.color = edge_color
                 e.display(self.screen)
             for v in self.V:
                 v.display(self.screen)
             vertex_number_info = self.info_font.render(
-                "Vertecies: " + str(len(self.V)),
+                "Vertices: " + str(len(self.V)),
                 1,
                 debug_color)
             edge_number_info = self.info_font.render(
@@ -299,10 +317,10 @@ class Vertex():
         self.dy = int(random.random() * 100)
         self.mass = size
         self.color = vertex_color
-        self.border = vertex_boarder_color
+        self.border_color = vertex_boarder_color
         self.thickness = 0
         self.degree = 0
-        self.size = size
+        self.size = size * 4
         self.name = name
         if self.name is None:
             self.name = str(random.choice([v for v in range(100)]))
@@ -311,7 +329,7 @@ class Vertex():
         return "(" + str(self.x) + ", " + str(self.y) + ")"
 
     def display(self, screen):
-        pygame.draw.circle(screen, self.border, (
+        pygame.draw.circle(screen, self.border_color, (
             int(self.x), int(self.y)), self.size * view_size_scaler + 3)
         pygame.draw.circle(screen, self.color, (
             int(self.x), int(self.y)), self.size * view_size_scaler, self.thickness)

@@ -1,11 +1,16 @@
+#installed:
 Cython==0.18
-Pyro4==4.17
-distribute==0.6.27
-numexpr==2.0.1
+
 numpy==1.7.0
-pygame==1.9.2pre
-tables==2.4.0
 wsgiref==0.1.2
+distribute==0.6.27
+pygame==1.9.2pre
+
+
+#needed?:
+numexpr==2.0.1
+Pyro4==4.17
+tables==2.4.0
 
 
 # from pprint import pprint
